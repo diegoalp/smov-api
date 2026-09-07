@@ -1,0 +1,209 @@
+{
+  "info": {
+    "_postman_id": "7d8dbdc9-6bd7-49c7-b98e-9ff8a39e08fb",
+    "name": "LTM API",
+    "description": "Collection de testes da LTM API. Execute as pastas na ordem apresentada; os recursos e variáveis são criados automaticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "protocolProfileBehavior": {},
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.request.headers.upsert({ key: 'X-API-Key', value: pm.collectionVariables.get('api_key') });"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Resposta em JSON', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/json'));",
+          "pm.test('Sem erro interno', () => pm.expect(pm.response.code).to.not.equal(500));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8004/api" },
+    { "key": "api_key", "value": "7c91d243b82f4a0e9d61e735c480ad57" },
+    { "key": "email", "value": "diegoalp@gmail.com" },
+    { "key": "password", "value": "01360" },
+    { "key": "instance_id", "value": "" },
+    { "key": "token", "value": "" },
+    { "key": "user_id", "value": "" },
+    { "key": "client_id", "value": "" },
+    { "key": "phone_id", "value": "" },
+    { "key": "funnel_id", "value": "" },
+    { "key": "funnel_id_2", "value": "" },
+    { "key": "stage_id", "value": "" },
+    { "key": "product_id", "value": "" },
+    { "key": "category_id", "value": "" },
+    { "key": "business_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 - Autenticação",
+      "item": [
+        {
+          "name": "Login",
+          "auth": { "type": "noauth" },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"device_name\": \"Postman\"\n}" },
+            "url": "{{base_url}}/auth/login"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "pm.test('Login realizado', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.collectionVariables.set('token', body.token);"
+          ] } }]
+        },
+        {
+          "name": "Usuário autenticado",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/auth/me" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Usuário retornado', () => pm.response.to.have.status(200));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "02 - Preparação",
+      "item": [
+        {
+          "name": "Criar instância",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Empresa Postman {{$randomInt}}\"\n}" },
+            "url": "{{base_url}}/instances"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Instância criada', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('instance_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar vendedor",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Vendedor Postman\",\n  \"lastname\": \"Teste\",\n  \"email\": \"vendedor.{{$randomInt}}@example.com\",\n  \"password\": \"password123\",\n  \"password_confirmation\": \"password123\",\n  \"type\": \"seller\",\n  \"instance_id\": {{instance_id}}\n}" },
+            "url": "{{base_url}}/users"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Vendedor criado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('user_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar cliente",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullname\": \"Cliente Postman\",\n  \"cpf\": \"{{$randomInt}}\",\n  \"city\": \"São Paulo\",\n  \"state\": \"SP\",\n  \"extra\": {\"source\": \"postman\"}\n}" },
+            "url": "{{base_url}}/clients"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Cliente criado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('client_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar telefone",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"client_id\": {{client_id}},\n  \"number\": \"+55 11 9{{$randomInt}}\",\n  \"whatsapp\": true\n}" },
+            "url": "{{base_url}}/phones"
+          },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Telefone criado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('phone_id', pm.response.json().data.id);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "03 - Catálogo e funis",
+      "item": [
+        {
+          "name": "Criar funil principal",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"instance_id\": {{instance_id}},\n  \"name\": \"Comercial {{$randomInt}}\"\n}" }, "url": "{{base_url}}/funnels" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Funil criado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('funnel_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar segundo funil",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"instance_id\": {{instance_id}},\n  \"name\": \"Renovação {{$randomInt}}\"\n}" }, "url": "{{base_url}}/funnels" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Segundo funil criado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('funnel_id_2', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar fase",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"instance_id\": {{instance_id}},\n  \"funnel_id\": {{funnel_id}},\n  \"name\": \"Proposta enviada\",\n  \"position\": 1\n}" }, "url": "{{base_url}}/stages" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Fase criada', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('stage_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar produto em dois funis",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"instance_id\": {{instance_id}},\n  \"title\": \"Portabilidade\",\n  \"prefix\": \"PORT_{{$randomInt}}\",\n  \"color\": \"#3366FF\",\n  \"funnel_ids\": [{{funnel_id}}, {{funnel_id_2}}]\n}" }, "url": "{{base_url}}/products" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Produto criado', () => pm.response.to.have.status(201));", "pm.test('Produto pertence a dois funis', () => pm.expect(pm.response.json().data.funnels).to.have.length(2));", "pm.collectionVariables.set('product_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Criar categoria em dois funis",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"instance_id\": {{instance_id}},\n  \"name\": \"INSS {{$randomInt}}\",\n  \"funnel_ids\": [{{funnel_id}}, {{funnel_id_2}}],\n  \"product_ids\": [{{product_id}}]\n}" }, "url": "{{base_url}}/categories" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Categoria criada', () => pm.response.to.have.status(201));", "pm.test('Categoria pertence a dois funis', () => pm.expect(pm.response.json().data.funnels).to.have.length(2));", "pm.collectionVariables.set('category_id', pm.response.json().data.id);"] } }]
+        }
+      ]
+    },
+    {
+      "name": "04 - Negócios",
+      "item": [
+        {
+          "name": "Criar negócio",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"instance_id\": {{instance_id}},\n  \"client_id\": {{client_id}},\n  \"user_id\": {{user_id}},\n  \"category_id\": {{category_id}},\n  \"product_id\": {{product_id}},\n  \"funnel_id\": {{funnel_id}},\n  \"stage_id\": {{stage_id}},\n  \"status\": 1,\n  \"value\": 125050,\n  \"notes\": \"Criado pelo Postman\"\n}" }, "url": "{{base_url}}/businesses" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Negócio criado', () => pm.response.to.have.status(201));", "pm.collectionVariables.set('business_id', pm.response.json().data.id);"] } }]
+        },
+        {
+          "name": "Atualizar negócio",
+          "request": { "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\n  \"status\": 2,\n  \"value\": 150000\n}" }, "url": "{{base_url}}/businesses/{{business_id}}" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Negócio atualizado', () => pm.response.to.have.status(200));", "pm.test('Valor atualizado', () => pm.expect(pm.response.json().data.value).to.equal(150000));"] } }]
+        },
+        {
+          "name": "Listar negócios",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/businesses" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Negócios listados', () => pm.response.to.have.status(200));", "pm.test('Resposta paginada', () => pm.expect(pm.response.json()).to.have.property('data'));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "05 - Consultas CRUD",
+      "item": [
+        { "name": "Listar usuários", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/users" } },
+        { "name": "Consultar cliente", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/clients/{{client_id}}" } },
+        { "name": "Listar funis", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/funnels" } },
+        { "name": "Consultar produto", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/products/{{product_id}}" } },
+        { "name": "Consultar categoria", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/categories/{{category_id}}" } },
+        { "name": "Listar fases", "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/stages" } }
+      ]
+    },
+    {
+      "name": "06 - Erros esperados",
+      "item": [
+        {
+          "name": "Endpoint inexistente (404)",
+          "request": { "method": "GET", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/endpoint-inexistente" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 404', () => pm.response.to.have.status(404));", "pm.test('Contrato de erro', () => pm.expect(pm.response.json().error.code).to.equal('ENDPOINT_NOT_FOUND'));"] } }]
+        },
+        {
+          "name": "Produto inválido (422)",
+          "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "Accept", "value": "application/json" }], "body": { "mode": "raw", "raw": "{}" }, "url": "{{base_url}}/products" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Retorna 422', () => pm.response.to.have.status(422));", "pm.test('Erro de validação', () => pm.expect(pm.response.json().error.code).to.equal('VALIDATION_ERROR'));"] } }]
+        }
+      ]
+    },
+    {
+      "name": "07 - Encerrar sessão",
+      "item": [
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "header": [{ "key": "Accept", "value": "application/json" }], "url": "{{base_url}}/auth/logout" },
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.test('Logout realizado', () => pm.response.to.have.status(200));", "pm.collectionVariables.unset('token');"] } }]
+        }
+      ]
+    }
+  ]
+}
