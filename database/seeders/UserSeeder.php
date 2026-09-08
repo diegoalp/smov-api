@@ -11,13 +11,14 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'diegoalp@gmail.com'],
+            ['email' => env('MASTER_EMAIL')],
             [
-                'name' => 'Diêgo',
-                'lastname' => 'Pessoa',
-                'password' => '01360alp',
+                'name' => env('MASTER_NAME'),
+                'password' => env('MASTER_PASSWORD'),
+                'email_verified_at' => now(),
                 'type' => UserType::Master,
             ],
         );
     }
+
 }
