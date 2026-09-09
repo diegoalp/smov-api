@@ -17,7 +17,7 @@ class FileUrl
             return $path;
         }
 
-        return rtrim($request->getSchemeAndHttpHost(), '/').'/storage/'.ltrim($path, '/');
+        return route('files.public', ['path' => ltrim($path, '/')]);
     }
 
     public static function diskUrl(string $disk, string $path): ?string

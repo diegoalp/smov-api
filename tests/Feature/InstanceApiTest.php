@@ -114,8 +114,12 @@ class InstanceApiTest extends TestCase
 
         $this->getJson('/api/branding')
             ->assertOk()
-            ->assertJsonPath('data.branding.logoDataUrl', rtrim(config('app.url'), '/')."/storage/{$logoPath}")
+            ->assertJsonPath('data.branding.logoDataUrl', rtrim(config('app.url'), '/')."/files/{$logoPath}")
             ->assertJsonPath('data.branding.secondaryColor', '#445566');
+
+        $this->get("/files/{$logoPath}")
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
 
         $this->deleteJson('/api/branding/logo')
             ->assertOk()
