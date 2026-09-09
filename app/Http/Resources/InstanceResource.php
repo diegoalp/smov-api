@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\FileUrl;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,12 +10,7 @@ class InstanceResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $logoUrl = match (true) {
-            ! $this->logo_url, str_starts_with($this->logo_url, 'data:') => null,
-            str_starts_with($this->logo_url, 'http://'), str_starts_with($this->logo_url, 'https://') => $this->logo_url,
-            default => rtrim($request->getSchemeAndHttpHost(), '/')
-                .'/storage/'.ltrim($this->logo_url, '/'),
-        };
+        $logoUrl = FileUrl::publicUrl($request, $this->logo_url);
 
         return [
             'id' => $this->id,

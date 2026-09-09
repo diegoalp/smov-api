@@ -17,7 +17,8 @@ class BusinessContentApiTest extends TestCase {
             'category_id'=>$category->id,'funnel_id'=>$funnel->id,'stage_id'=>$stage->id,'status'=>1,'value'=>0]);
     }
     public function test_note_and_document_full_flow(): void {
-        Storage::fake('local');
+        config(['filesystems.documents' => 's3', 'filesystems.disks.s3.url' => 'https://cdn.example.test']);
+        Storage::fake('s3');
         $instance = Instance::create(['name'=>'A']);
         $user = User::factory()->create(['instance_id'=>$instance->id,'type'=>'seller']);
         Sanctum::actingAs($user); $business = $this->business($user);
@@ -30,11 +31,15 @@ class BusinessContentApiTest extends TestCase {
         $type = DocumentType::create(['instance_id'=>$instance->id,'name'=>'RG']);
         $document = $this->postJson('/api/documents',['type'=>'business','object_id'=>$business->id,'document_type_id'=>$type->id,
             'file'=>UploadedFile::fake()->create('rg.pdf',10,'application/pdf')])->assertCreated()->assertJsonPath('data.title','RG')->json('data');
-        Storage::disk('local')->assertExists($document['file']);
+        $this->assertSame('s3', $document['disk']);
+        $this->assertStringStartsWith('documents/'.$instance->id.'/'.$business->id, $document['file']);
+        $this->assertNotEmpty($document['file_url']);
+        Storage::disk('s3')->assertExists($document['file']);
         $this->getJson('/api/documents?type=business&object_id='.$business->id)->assertOk()->assertJsonCount(1,'data');
+        $this->getJson('/api/documents/'.$document['id'].'/url')->assertOk()->assertJsonPath('data.file_url', $document['file_url']);
         $this->get('/api/documents/'.$document['id'].'/download')->assertOk()->assertDownload('rg.pdf');
         $this->deleteJson('/api/documents/'.$document['id'])->assertNoContent();
-        Storage::disk('local')->assertMissing($document['file']);
+        Storage::disk('s3')->assertMissing($document['file']);
     }
     public function test_scoping_validation_and_expired_business_lock(): void {
         Storage::fake('local');

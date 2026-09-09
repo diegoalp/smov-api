@@ -11,6 +11,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use App\Support\InstanceContext;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
 {
@@ -90,6 +92,34 @@ class UserController extends Controller
         return new UserResource($user->refresh());
     }
 
+    public function uploadPhoto(Request $request, User $user): UserResource
+    {
+        $this->ensureTenantAccess($user);
+
+        $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+        ]);
+
+        $previousPath = $user->profile_photo_path;
+        $path = $request->file('photo')->store("instances/{$user->instance_id}/users/{$user->id}", 'public');
+
+        $user->update(['profile_photo_path' => $path]);
+        $this->deletePublicFile($previousPath);
+
+        return new UserResource($user->refresh());
+    }
+
+    public function removePhoto(User $user): UserResource
+    {
+        $this->ensureTenantAccess($user);
+        $previousPath = $user->profile_photo_path;
+
+        $user->update(['profile_photo_path' => null]);
+        $this->deletePublicFile($previousPath);
+
+        return new UserResource($user->refresh());
+    }
+
     public function destroy(User $user): Response
     {
         $this->ensureTenantAccess($user);
@@ -102,5 +132,12 @@ class UserController extends Controller
     private function ensureTenantAccess(User $user): void
     {
         InstanceContext::authorize(request(), $user->instance_id);
+    }
+
+    private function deletePublicFile(?string $path): void
+    {
+        if ($path && ! str_starts_with($path, 'data:') && ! str_starts_with($path, 'http')) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

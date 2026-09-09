@@ -31,7 +31,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureInstanceIsActive::
     Route::get('activities/today', [\App\Http\Controllers\Api\ActivityController::class, 'today']);
     Route::apiResource('activities', \App\Http\Controllers\Api\ActivityController::class);
     Route::apiResource('notes', \App\Http\Controllers\Api\NoteController::class)->only(['index','store','destroy']);
-    Route::get('documents/{document}/download', [\App\Http\Controllers\Api\DocumentController::class, 'download']);
+    Route::get('documents/{document}/url', [\App\Http\Controllers\Api\DocumentController::class, 'url']);
+    Route::get('documents/{document}/download', [\App\Http\Controllers\Api\DocumentController::class, 'download'])->name('documents.download');
+    Route::post('users/{user}/photo', [UserController::class, 'uploadPhoto']);
+    Route::delete('users/{user}/photo', [UserController::class, 'removePhoto']);
     Route::apiResource('documents', \App\Http\Controllers\Api\DocumentController::class)->only(['index','store','destroy']);
     Route::apiResources([
         'users' => UserController::class,
