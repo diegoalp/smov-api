@@ -21,11 +21,18 @@ class CustomFieldController extends InstanceCrudController
     {
         $presence = $model ? 'sometimes' : 'required';
         $fieldType = $request->input('type', $model?->type);
+        $section = $request->input('section', $model?->section);
         $requiresTypeConfiguration = $model === null || $request->has('type');
 
         return [
             'label' => [$presence, 'string', 'max:255'],
             'section' => [$presence, Rule::in(['business', 'product', 'client'])],
+            'custom_field_section_id' => [
+                'sometimes', 'nullable', 'integer',
+                Rule::exists('custom_field_sections', 'id')
+                    ->where('instance_id', InstanceContext::id($request))
+                    ->where('section', $section),
+            ],
             'type' => [$presence, Rule::in(['text', 'textarea', 'currency', 'number', 'group', 'date', 'select', 'file', 'phone', 'document', 'checkbox'])],
             'required' => ['sometimes', 'boolean'],
             'default_value' => [Rule::requiredIf($requiresTypeConfiguration && $fieldType === 'checkbox'), 'nullable', 'boolean'],

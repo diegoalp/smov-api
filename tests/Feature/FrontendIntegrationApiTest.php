@@ -30,6 +30,31 @@ class FrontendIntegrationApiTest extends TestCase
             'type' => 'select',
             'options' => ['Banco do Brasil'],
         ])->assertUnprocessable()->assertJsonValidationErrors('section', 'error.details.fields');
+
+        $sectionId = $this->postJson('/api/custom-field-sections', [
+            'name' => 'Dados financeiros',
+            'section' => 'business',
+            'position' => 2,
+        ])->assertCreated()
+            ->assertJsonPath('data.name', 'Dados financeiros')
+            ->assertJsonPath('data.position', 2)
+            ->json('data.id');
+
+        $this->postJson('/api/custom-field-sections', [
+            'name' => 'Dados financeiros',
+            'section' => 'business',
+        ])->assertUnprocessable()->assertJsonValidationErrors('name', 'error.details.fields');
+
+        $this->postJson('/api/custom-fields', [
+            'label' => 'Banco',
+            'section' => 'business',
+            'custom_field_section_id' => $sectionId,
+            'position' => 1,
+            'type' => 'select',
+            'options' => ['Banco do Brasil'],
+        ])->assertCreated()
+            ->assertJsonPath('data.custom_field_section_id', $sectionId)
+            ->assertJsonPath('data.position', 1);
     }
 
     public function test_repeatable_custom_field_persists_and_validates_sub_fields(): void

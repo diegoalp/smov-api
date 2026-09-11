@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\{AuthController,AutomationRuleController,BrandingController,BusinessController,BusinessEventController,BusinessMessageController,CategoryController,ClientController,CustomFieldController,DispositionController,FunnelController,InstanceController,LeadSourceController,OperationTemplateController,PermissionRoleController,PhoneController,ProductController,PublicLeadFormController,StageController,TaskController,TeamController,UserController,ActivityTypeController};
+use App\Http\Controllers\Api\{AuthController,AutomationRuleController,BrandingController,BusinessController,BusinessEventController,BusinessMessageController,CategoryController,ClientController,CustomFieldController,CustomFieldSectionController,DispositionController,FunnelController,InstanceController,LeadSourceController,OperationTemplateController,PermissionRoleController,PhoneController,ProductController,PublicLeadFormController,StageController,TaskController,TeamController,UserController,ActivityTypeController};
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -47,6 +47,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureInstanceIsActive::
         'instances' => InstanceController::class,
         'lead-sources' => LeadSourceController::class,
         'dispositions' => DispositionController::class,
+        'custom-field-sections' => CustomFieldSectionController::class,
         'custom-fields' => CustomFieldController::class,
         'automation-rules' => AutomationRuleController::class,
         'teams' => TeamController::class,
