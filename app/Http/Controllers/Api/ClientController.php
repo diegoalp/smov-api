@@ -66,6 +66,7 @@ class ClientController extends Controller
             'phones' => ['sometimes', 'array'],
             'phones.*.number' => ['required', 'string', 'max:20'],
             'phones.*.whatsapp' => ['sometimes', 'boolean'],
+            'extra' => ['sometimes', 'nullable', 'array'],
         ]);
 
         $registration = preg_replace('/\D+/', '', $data['registration']);
@@ -79,6 +80,7 @@ class ClientController extends Controller
             ]);
             $client->update(array_filter([
                 'fullname' => $data['fullname'], 'type' => $data['type'], 'birthdate' => $data['birthdate'] ?? null,
+                'extra' => $data['extra'] ?? null,
             ], fn ($value) => $value !== null));
             foreach ($data['phones'] ?? [] as $phone) {
                 $number = preg_replace('/\D+/', '', $phone['number']);

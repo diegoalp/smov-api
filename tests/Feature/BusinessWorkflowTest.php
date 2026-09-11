@@ -22,6 +22,7 @@ class BusinessWorkflowTest extends TestCase
         $funnel = $this->postJson('/api/funnels', [
             'name' => 'Comercial',
         ])->assertCreated()->assertJsonPath('data.instance_id', $instance->id)->json('data');
+        $user->update(['funnel_id' => $funnel['id']]);
         $secondaryFunnel = $this->postJson('/api/funnels', [
             'name' => 'Renovação',
         ])->assertCreated()->json('data');
@@ -169,6 +170,80 @@ class BusinessWorkflowTest extends TestCase
             ->assertJsonStructure(['error' => ['details' => ['fields' => ['relationships']]]]);
     }
 
+    public function test_business_responsible_must_be_admin_or_belong_to_business_funnel(): void
+    {
+        $instance = Instance::create(['name' => 'Empresa A']);
+        $admin = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
+        Sanctum::actingAs($admin);
+
+        $funnel = $this->postJson('/api/funnels', ['name' => 'Funil A'])->assertCreated()->json('data');
+        $otherFunnel = $this->postJson('/api/funnels', ['name' => 'Funil B'])->assertCreated()->json('data');
+        $seller = User::factory()->create(['instance_id' => $instance->id, 'type' => 'seller', 'funnel_id' => $funnel['id']]);
+        $otherSeller = User::factory()->create(['instance_id' => $instance->id, 'type' => 'seller', 'funnel_id' => $otherFunnel['id']]);
+        $businessAdmin = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
+        $category = $this->postJson('/api/categories', ['name' => 'Categoria', 'funnel_ids' => [$funnel['id']]])->assertCreated()->json('data');
+        $stage = $this->postJson('/api/stages', ['funnel_id' => $funnel['id'], 'name' => 'Entrada', 'position' => 1])->assertCreated()->json('data');
+        $client = Client::create(['fullname' => 'Cliente', 'type' => 'individual', 'registration' => '99988877766']);
+
+        $business = $this->postJson('/api/businesses', [
+            'client_id' => $client->id,
+            'user_id' => $seller->id,
+            'category_id' => $category['id'],
+            'funnel_id' => $funnel['id'],
+            'stage_id' => $stage['id'],
+        ])->assertCreated()->json('data');
+
+        $this->patchJson("/api/businesses/{$business['id']}", ['user_id' => $businessAdmin->id])
+            ->assertOk()
+            ->assertJsonPath('data.user.id', $businessAdmin->id);
+
+        $this->patchJson("/api/businesses/{$business['id']}", ['user_id' => $otherSeller->id])
+            ->assertUnprocessable()
+            ->assertJsonPath('error.code', 'VALIDATION_ERROR')
+            ->assertJsonStructure(['error' => ['details' => ['fields' => ['user_id']]]]);
+    }
+
+    public function test_client_custom_fields_are_saved_by_resolve_and_returned_with_business(): void
+    {
+        $instance = Instance::create(['name' => 'Empresa A']);
+        $user = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
+        Sanctum::actingAs($user);
+
+        $funnel = $this->postJson('/api/funnels', ['name' => 'Funil'])->assertCreated()->json('data');
+        $category = $this->postJson('/api/categories', ['name' => 'Categoria', 'funnel_ids' => [$funnel['id']]])->assertCreated()->json('data');
+        $stage = $this->postJson('/api/stages', ['funnel_id' => $funnel['id'], 'name' => 'Entrada', 'position' => 1])->assertCreated()->json('data');
+
+        $client = $this->postJson('/api/clients/resolve', [
+            'fullname' => 'Cliente com ficha',
+            'type' => 'individual',
+            'registration' => '12345678901',
+            'extra' => [
+                'custom_fields' => [
+                    '10' => 'MAT-123',
+                    '11' => 'Banco XPTO',
+                ],
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.extra.custom_fields.10', 'MAT-123')
+            ->assertJsonPath('data.customData.custom_fields.11', 'Banco XPTO')
+            ->json('data');
+
+        $business = $this->postJson('/api/businesses', [
+            'client_id' => $client['id'],
+            'user_id' => $user->id,
+            'category_id' => $category['id'],
+            'funnel_id' => $funnel['id'],
+            'stage_id' => $stage['id'],
+        ])->assertCreated()
+            ->assertJsonPath('data.client.extra.custom_fields.10', 'MAT-123')
+            ->assertJsonPath('data.client.customData.custom_fields.11', 'Banco XPTO')
+            ->json('data');
+
+        $this->getJson("/api/businesses/{$business['id']}")
+            ->assertOk()
+            ->assertJsonPath('data.client.custom_data.custom_fields.10', 'MAT-123');
+    }
+
     public function test_business_can_be_created_without_a_product(): void
     {
         $instance = Instance::create(['name' => 'Empresa A']);
@@ -176,6 +251,7 @@ class BusinessWorkflowTest extends TestCase
         Sanctum::actingAs($user);
 
         $funnel = $this->postJson('/api/funnels', ['name' => 'Funil'])->assertCreated()->json('data');
+        $user->update(['funnel_id' => $funnel['id']]);
         $category = $this->postJson('/api/categories', [
             'name' => 'Categoria', 'funnel_ids' => [$funnel['id']],
         ])->assertCreated()->json('data');

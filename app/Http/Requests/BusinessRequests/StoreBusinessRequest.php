@@ -97,6 +97,9 @@ class StoreBusinessRequest extends FormRequest
             if (! $this->relationshipsAreConsistent()) {
                 $validator->errors()->add('relationships', 'Produto, categoria, funil e fase não possuem uma combinação válida.');
             }
+            if (! $this->responsibleCanOwnFunnel()) {
+                $validator->errors()->add('user_id', 'O responsável selecionado deve ser admin ou pertencer ao funil do negócio.');
+            }
             if ($this->integer('status') === 2 && ! \DB::table('stages')->where('id', $this->integer('stage_id'))->where('is_final', true)->exists()) {
                 $validator->errors()->add('status', 'O negócio só pode ser ganho em uma fase final do funil.');
             }
@@ -154,5 +157,27 @@ class StoreBusinessRequest extends FormRequest
 
         return $productMatchesCategory && $stageMatchesFunnel
             && $productMatchesFunnel && $categoryMatchesFunnel;
+    }
+
+    private function responsibleCanOwnFunnel(): bool
+    {
+        $responsible = \DB::table('users')
+            ->where('id', $this->integer('user_id'))
+            ->whereNull('deleted_at')
+            ->where(function ($query): void {
+                $query->where('instance_id', $this->integer('instance_id'))
+                    ->orWhere('type', 'master');
+            })
+            ->first(['type', 'funnel_id']);
+
+        if (! $responsible) {
+            return true;
+        }
+
+        if (in_array($responsible->type, ['admin', 'master'], true)) {
+            return true;
+        }
+
+        return (string) $responsible->funnel_id === (string) $this->integer('funnel_id');
     }
 }
