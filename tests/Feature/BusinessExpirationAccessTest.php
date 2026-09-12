@@ -31,14 +31,14 @@ class BusinessExpirationAccessTest extends TestCase
     {
         $this->travelTo(now()->startOfSecond());
         $instance = Instance::create(['name' => 'A']);
-        $user = User::factory()->create(['instance_id' => $instance->id]);
+        $user = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
         Sanctum::actingAs($user);
         $expired = $this->business($user, now()->subSecond()->toDateTimeString());
         $otherExpired = $this->business($user, now()->subMinute()->toDateTimeString());
         $future = $this->business($user, now()->addHour()->toDateTimeString());
         $undated = $this->business($user, null);
 
-        $this->getJson('/api/businesses')->assertOk();
+        $this->getJson('/api/businesses?stage_id='.$expired->stage_id)->assertOk();
         foreach ([$expired, $otherExpired] as $business) {
             $this->getJson('/api/businesses/'.$business->id)->assertOk();
             $this->patchJson('/api/businesses/'.$business->id, ['notes' => 'Regularizando'])->assertOk();
@@ -61,8 +61,8 @@ class BusinessExpirationAccessTest extends TestCase
     {
         $this->travelTo(now()->startOfSecond());
         $instance = Instance::create(['name' => 'A']);
-        $user = User::factory()->create(['instance_id' => $instance->id]);
-        $other = User::factory()->create(['instance_id' => $instance->id]);
+        $user = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
+        $other = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
         $this->business($other, now()->subHour()->toDateTimeString());
         $business = $this->business($user, now()->toDateTimeString());
         Sanctum::actingAs($user);
@@ -70,7 +70,7 @@ class BusinessExpirationAccessTest extends TestCase
         $this->patchJson('/api/businesses/'.$business->id, ['notes' => 'Permitido'])->assertOk();
 
         $foreignInstance = Instance::create(['name' => 'B']);
-        $foreignUser = User::factory()->create(['instance_id' => $foreignInstance->id]);
+        $foreignUser = User::factory()->create(['instance_id' => $foreignInstance->id, 'type' => 'admin']);
         $foreign = $this->business($foreignUser, now()->subHour()->toDateTimeString());
         $foreign->update(['user_id' => $user->id]);
         $this->patchJson('/api/businesses/'.$business->id, ['notes' => 'Outra instância não bloqueia'])->assertOk();

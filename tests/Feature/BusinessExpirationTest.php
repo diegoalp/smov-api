@@ -19,7 +19,7 @@ class BusinessExpirationTest extends TestCase
     {
         $this->travelTo(now()->startOfSecond());
         $instance = Instance::create(['name' => 'Empresa']);
-        $user = User::factory()->create(['instance_id' => $instance->id]);
+        $user = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
         Sanctum::actingAs($user);
         $funnel = $this->postJson('/api/funnels', ['name' => 'Comercial'])->assertCreated()->json('data.id');
         $category = $this->postJson('/api/categories', ['name' => 'Categoria', 'funnel_ids' => [$funnel]])

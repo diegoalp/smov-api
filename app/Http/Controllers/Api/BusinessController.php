@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BusinessRequests\StoreBusinessRequest;
 use App\Http\Requests\BusinessRequests\UpdateBusinessRequest;
 use App\Http\Resources\BusinessResource;
-use App\Models\Business;
+use App\Models\{Business, Stage};
 use App\Models\History;
 use App\Services\BusinessService;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use App\Support\InstanceContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class BusinessController extends Controller
 {
@@ -26,6 +27,22 @@ class BusinessController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
+        $instanceId = InstanceContext::id($request);
+
+        $request->validate([
+            'stage_id' => ['required', 'integer'],
+        ]);
+
+        $stageBelongsToInstance = Stage::whereKey($request->integer('stage_id'))
+            ->whereHas('funnel', fn ($query) => $query->where('instance_id', $instanceId))
+            ->exists();
+
+        if (! $stageBelongsToInstance) {
+            throw ValidationException::withMessages([
+                'stage_id' => ['A fase selecionada não existe na instância atual.'],
+            ]);
+        }
+
         return BusinessResource::collection($this->businessService->paginate($request));
     }
 

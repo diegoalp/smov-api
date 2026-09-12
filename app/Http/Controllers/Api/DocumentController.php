@@ -103,7 +103,7 @@ class DocumentController extends Controller {
     }
     public function destroy(Request $request, int $document) {
         $item = $this->find($request, $document, true);
-        $path = $item->file; $disk = $item->disk ?: 's3'; $item->delete();
+        $path = $item->file; $disk = $item->disk ?: 'local'; $item->delete();
         Storage::disk($disk)->delete($path);
         return response()->noContent();
     }

@@ -20,6 +20,7 @@ class BusinessService
 
         $query = Business::query()
             ->where('instance_id', InstanceContext::id($request))
+            ->where('stage_id', $request->integer('stage_id'))
             ->with(self::RELATIONS)
             ->where('status', $request->query('status',Status::Open->number())); //Se for passado o status na query, filtra pelo status, senão filtra pelo status aberto
 
