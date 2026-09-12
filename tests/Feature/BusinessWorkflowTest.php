@@ -92,6 +92,9 @@ class BusinessWorkflowTest extends TestCase
             ->assertJsonPath('data.customData.custom_fields.contracts.0.number', '123')
             ->json('data');
 
+        $this->getJson('/api/businesses')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/businesses?client_name=Cliente')->assertOk()->assertJsonCount(1, 'data');
+
         $this->assertDatabaseHas('businesses', [
             'id' => $business['id'],
             'custom_data' => json_encode([
@@ -120,7 +123,8 @@ class BusinessWorkflowTest extends TestCase
             'object_type' => 'business', 'object_id' => $business['id'], 'action' => 'Negócio marcado como ganho',
         ]);
 
-        $this->getJson('/api/businesses')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/businesses')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/businesses?status=2&client_name=Cliente')->assertOk()->assertJsonCount(1, 'data');
 
         $master = User::factory()->create([
             'instance_id' => null,

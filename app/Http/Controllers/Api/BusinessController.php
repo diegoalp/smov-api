@@ -8,33 +8,25 @@ use App\Http\Requests\BusinessRequests\UpdateBusinessRequest;
 use App\Http\Resources\BusinessResource;
 use App\Models\Business;
 use App\Models\History;
+use App\Services\BusinessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use App\Support\InstanceContext;
 use Illuminate\Support\Facades\DB;
-use App\Enums\UserType;
 
 class BusinessController extends Controller
 {
-    private const RELATIONS = ['client.phones', 'user', 'category', 'product', 'funnel', 'stage', 'events.user', 'messages'];
+    private const RELATIONS = BusinessService::RELATIONS;
 
-    public function index(): AnonymousResourceCollection
-    {   
-        $user = \Auth::user();
-        
-        $query = Business::query()
-            ->where('instance_id', InstanceContext::id(request()))
-            ->with(self::RELATIONS);
+    public function __construct(private readonly BusinessService $businessService)
+    {
+    }
 
-        //Se o usuário não for master ou admin, ele só poderá ver os negócios dele mesmo
-        if(!in_array($user->type, [UserType::Master, UserType::Admin], true)){
-            $query->where('user_id', $user->id);
-        }
-
-        $query->latest();
-
-        return BusinessResource::collection($query->paginate());
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        return BusinessResource::collection($this->businessService->paginate($request));
     }
 
     public function store(StoreBusinessRequest $request): JsonResponse
