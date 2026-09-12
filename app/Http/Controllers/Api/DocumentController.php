@@ -2,27 +2,27 @@
 namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\{Document,DocumentType};
-use App\Support\{BusinessContentAccess, FileUrl, InstanceContext};
+use App\Support\{BusinessContentAccess, InstanceContext};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 class DocumentController extends Controller {
+    private function temporaryUrl(Document $item): string {
+        return Storage::disk('s3')->temporaryUrl(
+            ltrim($item->file, '/'),
+            now()->addMinutes(10)
+        );
+    }
     private function payload(Document $item, Request $request): array {
-        $disk = $item->disk ?: 'local';
-        $downloadUrl = route('documents.download', [
-            'document' => $item->id,
-            'type' => 'business',
-            'id' => $item->business_id,
-            'object_id' => $item->business_id,
-            'document_name' => $item->title,
-        ]);
+        $disk = $item->disk ?: 's3';
+        $downloadUrl = $this->temporaryUrl($item);
 
         return [
             'id' => $item->id, 'title' => $item->title, 'document_type_id' => $item->document_type_id,
             'type' => 'business', 'object_id' => $item->business_id, 'file' => $item->file, 'disk' => $disk,
             'original_name' => $item->original_name, 'mime_type' => $item->mime_type,
-            'file_url' => $disk === 'local' ? $downloadUrl : FileUrl::diskUrl($disk, $item->file),
+            'file_url' => $downloadUrl,
             'download_url' => $downloadUrl, 'created_at' => $item->created_at,
         ];
     }
@@ -90,10 +90,9 @@ class DocumentController extends Controller {
     }
     public function download(Request $request, int $document) {
         $item = $this->findForDownload($request, $document);
-        $disk = $item->disk ?: 'local';
-        abort_unless(Storage::disk($disk)->exists($item->file), 404);
+        abort_unless(Storage::disk('s3')->exists($item->file), 404);
 
-        return Storage::disk($disk)->download($item->file, $item->original_name, ['Content-Type' => $item->mime_type, 'X-Content-Type-Options' => 'nosniff']);
+        return $this->temporaryUrl($item);
     }
     public function url(Request $request, int $document) {
         $item = $this->find($request, $document);
@@ -101,7 +100,7 @@ class DocumentController extends Controller {
     }
     public function destroy(Request $request, int $document) {
         $item = $this->find($request, $document, true);
-        $path = $item->file; $disk = $item->disk ?: 'local'; $item->delete();
+        $path = $item->file; $disk = $item->disk ?: 's3'; $item->delete();
         Storage::disk($disk)->delete($path);
         return response()->noContent();
     }

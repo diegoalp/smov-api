@@ -19,6 +19,9 @@ class BusinessContentApiTest extends TestCase {
     public function test_note_and_document_full_flow(): void {
         config(['filesystems.documents' => 's3', 'filesystems.disks.s3.url' => 'https://cdn.example.test']);
         Storage::fake('s3');
+        Storage::disk('s3')->buildTemporaryUrlsUsing(
+            fn (string $path, mixed $expiration, array $options = []) => 'https://s3.example.test/'.ltrim($path, '/')
+        );
         $instance = Instance::create(['name'=>'A']);
         $user = User::factory()->create(['instance_id'=>$instance->id,'type'=>'seller']);
         Sanctum::actingAs($user); $business = $this->business($user);
@@ -38,8 +41,8 @@ class BusinessContentApiTest extends TestCase {
         Storage::disk('s3')->assertExists($document['file']);
         $this->getJson('/api/documents?type=business&object_id='.$business->id)->assertOk()->assertJsonCount(1,'data');
         $this->getJson('/api/documents/'.$document['id'].'/url')->assertOk()->assertJsonPath('data.file_url', $document['file_url']);
-        $this->get('/api/documents/0/download?type=business&object_id='.$business->id.'&document_name='.rawurlencode($type->name))->assertOk()->assertDownload('comprovante-de-endereco.pdf');
-        $this->get('/api/documents/'.$document['id'].'/download')->assertOk()->assertDownload('comprovante-de-endereco.pdf');
+        $this->get('/api/documents/0/download?type=business&object_id='.$business->id.'&document_name='.rawurlencode($type->name))->assertOk()->assertContent($document['download_url']);
+        $this->get('/api/documents/'.$document['id'].'/download')->assertOk()->assertContent($document['download_url']);
         $this->deleteJson('/api/documents/'.$document['id'])->assertNoContent();
         Storage::disk('s3')->assertMissing($document['file']);
     }
