@@ -90,7 +90,10 @@ class DocumentController extends Controller {
     }
     public function download(Request $request, int $document) {
         $item = $this->findForDownload($request, $document);
-        abort_unless(Storage::disk('s3')->exists($item->file), 404);
+
+        $disk = $item->disk ?: 'local';
+
+        abort_unless(Storage::disk($disk)->exists($item->file), 404);
 
         return $this->temporaryUrl($item);
     }
