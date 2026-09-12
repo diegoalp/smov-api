@@ -28,16 +28,18 @@ class BusinessContentApiTest extends TestCase {
         $this->getJson('/api/notes?business_id='.$business->id)->assertOk()->assertJsonCount(1,'data');
         $this->deleteJson('/api/notes/'.$noteId)->assertNoContent();
         $this->getJson('/api/documents?type=business&object_id='.$business->id)->assertOk()->assertJsonCount(0,'data');
-        $type = DocumentType::create(['instance_id'=>$instance->id,'name'=>'RG']);
+        $type = DocumentType::create(['instance_id'=>$instance->id,'name'=>'COMPROVANTE DE ENDEREÇO']);
         $document = $this->postJson('/api/documents',['type'=>'business','object_id'=>$business->id,'document_type_id'=>$type->id,
-            'file'=>UploadedFile::fake()->create('rg.pdf',10,'application/pdf')])->assertCreated()->assertJsonPath('data.title','RG')->json('data');
+            'file'=>UploadedFile::fake()->create('conta.pdf',10,'application/pdf')])->assertCreated()->assertJsonPath('data.title','COMPROVANTE DE ENDEREÇO')->json('data');
         $this->assertSame('s3', $document['disk']);
-        $this->assertStringStartsWith('documents/'.$instance->id.'/'.$business->id, $document['file']);
+        $this->assertSame('documents/'.$instance->id.'/'.$business->id.'/comprovante-de-endereco.pdf', $document['file']);
+        $this->assertSame('comprovante-de-endereco.pdf', $document['original_name']);
         $this->assertNotEmpty($document['file_url']);
         Storage::disk('s3')->assertExists($document['file']);
         $this->getJson('/api/documents?type=business&object_id='.$business->id)->assertOk()->assertJsonCount(1,'data');
         $this->getJson('/api/documents/'.$document['id'].'/url')->assertOk()->assertJsonPath('data.file_url', $document['file_url']);
-        $this->get('/api/documents/'.$document['id'].'/download')->assertOk()->assertDownload('rg.pdf');
+        $this->get('/api/documents/0/download?type=business&object_id='.$business->id.'&document_name='.rawurlencode($type->name))->assertOk()->assertDownload('comprovante-de-endereco.pdf');
+        $this->get('/api/documents/'.$document['id'].'/download')->assertOk()->assertDownload('comprovante-de-endereco.pdf');
         $this->deleteJson('/api/documents/'.$document['id'])->assertNoContent();
         Storage::disk('s3')->assertMissing($document['file']);
     }

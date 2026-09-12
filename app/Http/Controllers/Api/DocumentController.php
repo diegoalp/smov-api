@@ -5,11 +5,18 @@ use App\Models\{Document,DocumentType};
 use App\Support\{BusinessContentAccess, FileUrl, InstanceContext};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 class DocumentController extends Controller {
     private function payload(Document $item, Request $request): array {
         $disk = $item->disk ?: 'local';
-        $downloadUrl = route('documents.download', ['document' => $item->id]);
+        $downloadUrl = route('documents.download', [
+            'document' => $item->id,
+            'type' => 'business',
+            'id' => $item->business_id,
+            'object_id' => $item->business_id,
+            'document_name' => $item->title,
+        ]);
 
         return [
             'id' => $item->id, 'title' => $item->title, 'document_type_id' => $item->document_type_id,
@@ -34,15 +41,25 @@ class DocumentController extends Controller {
             'file' => ['required','file','mimes:pdf,jpg,jpeg,png,gif,webp','max:10240'],
         ]);
         $business = BusinessContentAccess::resolve($request, $data['object_id'], true);
+        $documentType = DocumentType::findOrFail($data['document_type_id']);
         $file = $request->file('file');
         $disk = config('filesystems.documents', 's3');
-        $path = $file->store('documents/'.$instanceId.'/'.$business->id, $disk);
+        $directory = 'documents/'.$instanceId.'/'.$business->id;
+        $baseName = Str::slug($documentType->name) ?: 'documento';
+        $extension = strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: '');
+        $fileName = $extension ? $baseName.'.'.$extension : $baseName;
+        $path = $directory.'/'.$fileName;
+        for ($suffix = 2; Storage::disk($disk)->exists($path); $suffix++) {
+            $fileName = $extension ? $baseName.'-'.$suffix.'.'.$extension : $baseName.'-'.$suffix;
+            $path = $directory.'/'.$fileName;
+        }
+        $path = $file->storeAs($directory, $fileName, $disk);
         abort_unless($path, 500);
         try {
             $item = Document::create([
                 'instance_id' => $instanceId, 'business_id' => $business->id, 'user_id' => $request->user()->id,
-                'document_type_id' => $data['document_type_id'], 'title' => DocumentType::findOrFail($data['document_type_id'])->name,
-                'file' => $path, 'disk' => $disk, 'original_name' => basename($file->getClientOriginalName()), 'mime_type' => $file->getMimeType(),
+                'document_type_id' => $documentType->id, 'title' => $documentType->name,
+                'file' => $path, 'disk' => $disk, 'original_name' => $fileName, 'mime_type' => $file->getMimeType(),
             ]);
         } catch (\Throwable $error) { Storage::disk($disk)->delete($path); throw $error; }
         return response()->json(['data' => $this->payload($item, $request)], 201);
@@ -52,8 +69,27 @@ class DocumentController extends Controller {
         BusinessContentAccess::resolve($request, $item->business_id, $write);
         return $item;
     }
+    private function findForDownload(Request $request, int $id): Document {
+        $businessId = $request->integer('object_id') ?: $request->integer('id');
+        $documentName = trim((string) ($request->input('document_name') ?: $request->input('title')));
+
+        if ($request->input('type') === 'business' && $businessId > 0 && $documentName !== '') {
+            $business = BusinessContentAccess::resolve($request, $businessId);
+            $item = Document::where('instance_id', $business->instance_id)
+                ->where('business_id', $business->id)
+                ->where('title', $documentName)
+                ->latest()
+                ->first();
+
+            if ($item) {
+                return $item;
+            }
+        }
+
+        return $this->find($request, $id);
+    }
     public function download(Request $request, int $document) {
-        $item = $this->find($request, $document);
+        $item = $this->findForDownload($request, $document);
         $disk = $item->disk ?: 'local';
         abort_unless(Storage::disk($disk)->exists($item->file), 404);
 
