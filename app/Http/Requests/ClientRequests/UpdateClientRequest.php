@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\ClientRequests;
 
+use App\Support\InstanceContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,11 +17,21 @@ class UpdateClientRequest extends FormRequest
 
     public function rules(): array
     {
+        $instanceId = InstanceContext::id($this);
+
         return [
             'fullname' => ['sometimes', 'required', 'string', 'max:255'],
             'type' => ['sometimes', 'required', 'string', 'in:individual,company'],
             'birthdate' => ['sometimes', 'nullable', 'date', 'before:today'],
-            'registration' => ['sometimes', 'required', 'string', 'digits_between:11,14', Rule::unique('clients')->ignore($this->route('client'))],
+            'registration' => [
+                'sometimes',
+                'required',
+                'string',
+                'digits_between:11,14',
+                Rule::unique('clients', 'registration')
+                    ->where('instance_id', $instanceId)
+                    ->ignore($this->route('client')),
+            ],
             'rg' => ['sometimes', 'nullable', 'string', 'max:20'],
             'street' => ['sometimes', 'nullable', 'string', 'max:255'],
             'district' => ['sometimes', 'nullable', 'string', 'max:255'],

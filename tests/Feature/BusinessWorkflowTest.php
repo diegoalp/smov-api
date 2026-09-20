@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\BusinessResource;
+use App\Models\Business;
 use App\Models\Client;
 use App\Models\Instance;
 use App\Models\User;
@@ -56,6 +58,7 @@ class BusinessWorkflowTest extends TestCase
         ])->assertCreated()->json('data');
 
         $client = Client::create([
+            'instance_id' => $instance->id,
             'fullname' => 'Cliente Teste',
             'type' => 'individual',
             'registration' => '11122233344',
@@ -168,7 +171,7 @@ class BusinessWorkflowTest extends TestCase
         $stage = $this->postJson('/api/stages', [
             'funnel_id' => $otherFunnel['id'], 'name' => 'Análise', 'position' => 1,
         ])->assertCreated()->json('data');
-        $client = Client::create(['fullname' => 'Cliente', 'type' => 'individual', 'registration' => '99988877766']);
+        $client = Client::create(['instance_id' => $instance->id, 'fullname' => 'Cliente', 'type' => 'individual', 'registration' => '99988877766']);
 
         $this->postJson('/api/businesses', [
             'client_id' => $client->id,
@@ -195,7 +198,7 @@ class BusinessWorkflowTest extends TestCase
         $businessAdmin = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
         $category = $this->postJson('/api/categories', ['name' => 'Categoria', 'funnel_ids' => [$funnel['id']]])->assertCreated()->json('data');
         $stage = $this->postJson('/api/stages', ['funnel_id' => $funnel['id'], 'name' => 'Entrada', 'position' => 1])->assertCreated()->json('data');
-        $client = Client::create(['fullname' => 'Cliente', 'type' => 'individual', 'registration' => '99988877766']);
+        $client = Client::create(['instance_id' => $instance->id, 'fullname' => 'Cliente', 'type' => 'individual', 'registration' => '99988877766']);
 
         $business = $this->postJson('/api/businesses', [
             'client_id' => $client->id,
@@ -270,7 +273,7 @@ class BusinessWorkflowTest extends TestCase
         $stage = $this->postJson('/api/stages', [
             'funnel_id' => $funnel['id'], 'name' => 'Entrada', 'position' => 1,
         ])->assertCreated()->json('data');
-        $client = Client::create(['fullname' => 'Cliente sem produto', 'type' => 'individual', 'registration' => '12345678901']);
+        $client = Client::create(['instance_id' => $instance->id, 'fullname' => 'Cliente sem produto', 'type' => 'individual', 'registration' => '12345678901']);
 
         $this->postJson('/api/businesses', [
             'client_id' => $client->id, 'user_id' => $user->id,
@@ -279,6 +282,81 @@ class BusinessWorkflowTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.product_id', null)
             ->assertJsonPath('data.stage.id', $stage['id']);
+    }
+
+    public function test_business_rejects_client_from_another_instance(): void
+    {
+        $firstInstance = Instance::create(['name' => 'Empresa A']);
+        $secondInstance = Instance::create(['name' => 'Empresa B']);
+        $user = User::factory()->create(['instance_id' => $firstInstance->id, 'type' => 'admin']);
+        $foreignClient = Client::create([
+            'instance_id' => $secondInstance->id,
+            'fullname' => 'Cliente de outra instância',
+            'type' => 'individual',
+            'registration' => '12345678901',
+        ]);
+
+        Sanctum::actingAs($user);
+        [$funnel, $category, $stage] = $this->createBusinessPrerequisites();
+
+        $this->postJson('/api/businesses', [
+            'client_id' => $foreignClient->id,
+            'user_id' => $user->id,
+            'category_id' => $category['id'],
+            'funnel_id' => $funnel['id'],
+            'stage_id' => $stage['id'],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('client_id', 'error.details.fields');
+    }
+
+    public function test_business_creation_resolves_client_by_registration_within_instance(): void
+    {
+        $firstInstance = Instance::create(['name' => 'Empresa A']);
+        $secondInstance = Instance::create(['name' => 'Empresa B']);
+        $firstUser = User::factory()->create(['instance_id' => $firstInstance->id, 'type' => 'admin']);
+        $secondUser = User::factory()->create(['instance_id' => $secondInstance->id, 'type' => 'admin']);
+        $existingClient = Client::create([
+            'instance_id' => $firstInstance->id,
+            'fullname' => 'Cliente existente',
+            'type' => 'individual',
+            'registration' => '12345678901',
+        ]);
+
+        Sanctum::actingAs($firstUser);
+        [$firstFunnel, $firstCategory, $firstStage] = $this->createBusinessPrerequisites();
+        $firstBusiness = $this->postJson('/api/businesses', [
+            'client' => [
+                'fullname' => 'Cliente atualizado',
+                'type' => 'individual',
+                'registration' => '123.456.789-01',
+            ],
+            'user_id' => $firstUser->id,
+            'category_id' => $firstCategory['id'],
+            'funnel_id' => $firstFunnel['id'],
+            'stage_id' => $firstStage['id'],
+        ])->assertCreated()
+            ->assertJsonPath('data.client_id', $existingClient->id)
+            ->assertJsonPath('data.client.fullname', 'Cliente atualizado')
+            ->json('data');
+
+        Sanctum::actingAs($secondUser);
+        [$secondFunnel, $secondCategory, $secondStage] = $this->createBusinessPrerequisites();
+        $secondBusiness = $this->postJson('/api/businesses', [
+            'client' => [
+                'fullname' => 'Cliente da segunda instância',
+                'type' => 'individual',
+                'registration' => '123.456.789-01',
+            ],
+            'user_id' => $secondUser->id,
+            'category_id' => $secondCategory['id'],
+            'funnel_id' => $secondFunnel['id'],
+            'stage_id' => $secondStage['id'],
+        ])->assertCreated()
+            ->assertJsonPath('data.client.instance_id', $secondInstance->id)
+            ->json('data');
+
+        $this->assertNotSame($firstBusiness['client_id'], $secondBusiness['client_id']);
+        $this->assertSame(2, Client::where('registration', '12345678901')->count());
     }
 
     public function test_tenant_cannot_access_another_tenants_product(): void
@@ -302,11 +380,27 @@ class BusinessWorkflowTest extends TestCase
 
     public function test_business_resource_preserves_numeric_custom_field_ids(): void
     {
-        $business = new \App\Models\Business;
+        $business = new Business;
         $business->forceFill(['custom_data' => ['custom_fields' => [3 => 2, 4 => 2]]]);
-        $resource = new \App\Http\Resources\BusinessResource($business);
+        $resource = new BusinessResource($business);
         $payload = $resource->response()->getData(true);
         $this->assertSame(['3' => 2, '4' => 2], $payload['data']['customData']['custom_fields']);
         $this->assertStringContainsString('"custom_fields":{"3":2,"4":2}', $resource->response()->getContent());
+    }
+
+    private function createBusinessPrerequisites(): array
+    {
+        $funnel = $this->postJson('/api/funnels', ['name' => 'Funil'])->assertCreated()->json('data');
+        $category = $this->postJson('/api/categories', [
+            'name' => 'Categoria',
+            'funnel_ids' => [$funnel['id']],
+        ])->assertCreated()->json('data');
+        $stage = $this->postJson('/api/stages', [
+            'funnel_id' => $funnel['id'],
+            'name' => 'Entrada',
+            'position' => 1,
+        ])->assertCreated()->json('data');
+
+        return [$funnel, $category, $stage];
     }
 }

@@ -57,5 +57,6 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureInstanceIsActive::
         'activity-types' => ActivityTypeController::class,
         'document-types' => \App\Http\Controllers\Api\DocumentTypeController::class,
     ]);
+    Route::get('clients/search/by-registration', [ClientController::class, 'search']);
     Route::apiResource('clients', ClientController::class)->except('store');
 });

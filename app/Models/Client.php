@@ -5,12 +5,13 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'fullname', 'type', 'birthdate', 'registration', 'rg', 'street', 'district', 'city',
-    'state', 'zipcode', 'gender', 'extra',
+    'instance_id', 'fullname', 'type', 'birthdate', 'registration', 'rg', 'street', 'district',
+    'city', 'state', 'zipcode', 'gender', 'extra',
 ])]
 class Client extends Model
 {
@@ -20,8 +21,14 @@ class Client extends Model
     {
         return [
             'birthdate' => 'date',
+            'instance_id' => 'integer',
             'extra' => 'array',
         ];
+    }
+
+    public function instance(): BelongsTo
+    {
+        return $this->belongsTo(Instance::class);
     }
 
     public function phones(): HasMany
@@ -36,6 +43,6 @@ class Client extends Model
 
     public function scopeAccessibleByInstance($query, int $instanceId)
     {
-        return $query->whereHas('businesses', fn ($query) => $query->where('instance_id', $instanceId));
+        return $query->where('instance_id', $instanceId);
     }
 }

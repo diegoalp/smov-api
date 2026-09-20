@@ -45,6 +45,13 @@
             "Composer\\Config::disableProcessTimeout",
             "@php artisan dev"
         ],
+        "spec:check": [
+            "@php scripts/spec-check.php"
+        ],
+        "spec:test": [
+            "@spec:check",
+            "@test"
+        ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
             "@php artisan test"

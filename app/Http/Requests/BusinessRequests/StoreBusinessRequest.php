@@ -69,7 +69,13 @@ class StoreBusinessRequest extends FormRequest
 
         return [
             'instance_id' => ['required', 'integer', 'exists:instances,id'],
-            'client_id' => ['required', 'integer', 'exists:clients,id'],
+            'client_id' => [
+                'required_without_all:client,client_data',
+                'integer',
+                Rule::exists('clients', 'id')->where('instance_id', $instanceId),
+            ],
+            'client' => ['sometimes', 'array'],
+            'client_data' => ['sometimes', 'array'],
             'user_id' => ['required', 'integer', Rule::exists('users', 'id')->where(function ($query) use ($instanceId): void {
                 $query->where('instance_id', $instanceId)
                     ->orWhere('type', 'master');

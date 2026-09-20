@@ -2,7 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Models\{Business, Category, Client, Funnel, Instance, Stage, User};
+use App\Models\Business;
+use App\Models\Category;
+use App\Models\Client;
+use App\Models\Funnel;
+use App\Models\Instance;
+use App\Models\Stage;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -17,13 +23,14 @@ class BusinessExpirationAccessTest extends TestCase
         $stage = Stage::create(['funnel_id' => $funnel->id, 'name' => 'Entrada', 'position' => 1]);
         $category = Category::create(['instance_id' => $user->instance_id, 'name' => 'Categoria '.Business::count()]);
         $category->funnels()->attach($funnel);
-        $client = Client::create(['fullname' => 'Cliente', 'type' => 'individual', 'registration' => fake()->unique()->numerify('###########')]);
+        $client = Client::create(['instance_id' => $user->instance_id, 'fullname' => 'Cliente', 'type' => 'individual', 'registration' => fake()->unique()->numerify('###########')]);
         $business = Business::create([
             'instance_id' => $user->instance_id, 'client_id' => $client->id,
             'user_id' => $user->id, 'category_id' => $category->id, 'product_id' => null,
             'funnel_id' => $funnel->id, 'stage_id' => $stage->id, 'status' => 1, 'value' => 0,
         ]);
         $business->forceFill(['expiration_date' => $expiration])->save();
+
         return $business;
     }
 

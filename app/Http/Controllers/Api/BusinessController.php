@@ -6,14 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BusinessRequests\StoreBusinessRequest;
 use App\Http\Requests\BusinessRequests\UpdateBusinessRequest;
 use App\Http\Resources\BusinessResource;
-use App\Models\{Business, Stage};
+use App\Models\Business;
 use App\Models\History;
+use App\Models\Stage;
 use App\Services\BusinessService;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
+use App\Services\ClientResolver;
 use App\Support\InstanceContext;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,9 +23,10 @@ class BusinessController extends Controller
 {
     private const RELATIONS = BusinessService::RELATIONS;
 
-    public function __construct(private readonly BusinessService $businessService)
-    {
-    }
+    public function __construct(
+        private readonly BusinessService $businessService,
+        private readonly ClientResolver $clientResolver,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -49,7 +52,16 @@ class BusinessController extends Controller
     public function store(StoreBusinessRequest $request): JsonResponse
     {
         $business = DB::transaction(function () use ($request): Business {
-            $business = Business::create($request->validated());
+            $data = $request->validated();
+            $clientData = $this->clientResolver->businessClientPayload($request->all());
+
+            if ($clientData !== null) {
+                $data['client_id'] = $this->clientResolver->resolve($clientData, (int) $data['instance_id'])->id;
+            }
+
+            unset($data['client'], $data['client_data']);
+
+            $business = Business::create($data);
             $this->recordHistory($business, $request->user()->id, 'Negócio criado', 'created');
 
             return $business;

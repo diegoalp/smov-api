@@ -24,7 +24,7 @@ class BusinessExpirationTest extends TestCase
         $funnel = $this->postJson('/api/funnels', ['name' => 'Comercial'])->assertCreated()->json('data.id');
         $category = $this->postJson('/api/categories', ['name' => 'Categoria', 'funnel_ids' => [$funnel]])
             ->assertCreated()->json('data.id');
-        $client = Client::create(['fullname' => 'Cliente', 'type' => 'individual', 'registration' => '11122233344']);
+        $client = Client::create(['instance_id' => $instance->id, 'fullname' => 'Cliente', 'type' => 'individual', 'registration' => '11122233344']);
         $first = Stage::create(['funnel_id' => $funnel, 'name' => 'Inicial', 'position' => 1, 'duration' => 2, 'duration_unit' => 'horas']);
         $next = Stage::create(['funnel_id' => $funnel, 'name' => 'Seguinte', 'position' => 2, 'duration' => 3, 'duration_unit' => 'dias']);
         $noDuration = Stage::create(['funnel_id' => $funnel, 'name' => 'Sem prazo', 'position' => 3]);

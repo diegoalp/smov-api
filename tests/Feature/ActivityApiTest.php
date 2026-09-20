@@ -1,27 +1,48 @@
 <?php
+
 namespace Tests\Feature;
-use App\Models\{Activity, ActivityType, Business, Category, Client, Funnel, Instance, Stage, User};
+
+use App\Models\Activity;
+use App\Models\ActivityType;
+use App\Models\Business;
+use App\Models\Category;
+use App\Models\Client;
+use App\Models\Funnel;
+use App\Models\Instance;
+use App\Models\Stage;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
-class ActivityApiTest extends TestCase {
+
+class ActivityApiTest extends TestCase
+{
     use RefreshDatabase;
-    private function business(User $owner): Business {
+
+    private function business(User $owner): Business
+    {
         $funnel = Funnel::create(['instance_id' => $owner->instance_id, 'name' => 'Funil '.Business::count()]);
         $stage = Stage::create(['funnel_id' => $funnel->id, 'name' => 'Entrada', 'position' => 1]);
         $category = Category::create(['instance_id' => $owner->instance_id, 'name' => 'Categoria '.Business::count()]);
         $category->funnels()->attach($funnel);
-        $client = Client::create(['fullname' => 'Cliente', 'type' => 'individual', 'registration' => fake()->unique()->numerify('###########')]);
+        $client = Client::create(['instance_id' => $owner->instance_id, 'fullname' => 'Cliente', 'type' => 'individual', 'registration' => fake()->unique()->numerify('###########')]);
+
         return Business::create(['instance_id' => $owner->instance_id, 'client_id' => $client->id, 'user_id' => $owner->id,
             'category_id' => $category->id, 'funnel_id' => $funnel->id, 'stage_id' => $stage->id, 'status' => 1, 'value' => 0]);
     }
-    private function activity(User $owner, string $when): Activity {
+
+    private function activity(User $owner, string $when): Activity
+    {
         $business = $this->business($owner);
         $type = ActivityType::firstOrCreate(['instance_id' => $owner->instance_id, 'activity_type' => 'Ligação']);
+
         return Activity::create(['instance_id' => $owner->instance_id, 'business_id' => $business->id, 'user_id' => $owner->id,
             'activity_type_id' => $type->id, 'title' => 'Retorno', 'scheduled_at' => $when, 'status' => 'pending']);
     }
-    public function test_creation_and_completion_with_correct_timezone_and_owner(): void {
+
+    public function test_creation_and_completion_with_correct_timezone_and_owner(): void
+    {
         $instance = Instance::create(['name' => 'A']);
         $owner = User::factory()->create(['instance_id' => $instance->id, 'type' => 'seller']);
         Sanctum::actingAs($owner);
@@ -43,14 +64,19 @@ class ActivityApiTest extends TestCase {
         $this->getJson('/api/activities?business_id='.$business->id)->assertOk()->assertJsonCount(1, 'data');
         $this->deleteJson('/api/activities/'.$id)->assertNoContent();
     }
-    public function test_role_visibility_and_completion_are_tenant_scoped(): void {
-        $a = Instance::create(['name' => 'A']); $b = Instance::create(['name' => 'B']);
+
+    public function test_role_visibility_and_completion_are_tenant_scoped(): void
+    {
+        $a = Instance::create(['name' => 'A']);
+        $b = Instance::create(['name' => 'B']);
         $seller = User::factory()->create(['instance_id' => $a->id, 'type' => 'seller']);
         $subordinate = User::factory()->create(['instance_id' => $a->id, 'type' => 'seller', 'supervisor_id' => $seller->id]);
         $other = User::factory()->create(['instance_id' => $a->id, 'type' => 'seller']);
         $foreign = User::factory()->create(['instance_id' => $b->id, 'type' => 'seller', 'supervisor_id' => $seller->id]);
-        $own = $this->activity($seller, now()); $team = $this->activity($subordinate, now());
-        $hidden = $this->activity($other, now()); $outside = $this->activity($foreign, now());
+        $own = $this->activity($seller, now());
+        $team = $this->activity($subordinate, now());
+        $hidden = $this->activity($other, now());
+        $outside = $this->activity($foreign, now());
         Sanctum::actingAs($seller);
         $this->getJson('/api/activities')->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/api/activities/today?timezone=UTC')->assertOk()->assertJsonCount(2, 'data');
@@ -67,8 +93,10 @@ class ActivityApiTest extends TestCase {
         Sanctum::actingAs(User::factory()->create(['instance_id' => null, 'type' => 'master']));
         $this->getJson('/api/activities?instance_id='.$b->id)->assertOk()->assertJsonCount(1, 'data');
     }
-    public function test_today_and_month_use_exclusive_end_and_local_day(): void {
-        $this->travelTo(\Carbon\Carbon::parse('2026-09-08T01:00:00Z'));
+
+    public function test_today_and_month_use_exclusive_end_and_local_day(): void
+    {
+        $this->travelTo(Carbon::parse('2026-09-08T01:00:00Z'));
         $instance = Instance::create(['name' => 'A']);
         $owner = User::factory()->create(['instance_id' => $instance->id]);
         Sanctum::actingAs($owner);
@@ -82,12 +110,17 @@ class ActivityApiTest extends TestCase {
             ->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/api/activities/today?timezone=invalid')->assertUnprocessable();
     }
-    public function test_creation_rejects_other_owners_tenants_and_wrong_funnel_types(): void {
-        $a = Instance::create(['name' => 'A']); $b = Instance::create(['name' => 'B']);
+
+    public function test_creation_rejects_other_owners_tenants_and_wrong_funnel_types(): void
+    {
+        $a = Instance::create(['name' => 'A']);
+        $b = Instance::create(['name' => 'B']);
         $owner = User::factory()->create(['instance_id' => $a->id, 'type' => 'seller']);
         $other = User::factory()->create(['instance_id' => $a->id, 'type' => 'seller']);
         $foreign = User::factory()->create(['instance_id' => $b->id, 'type' => 'seller']);
-        $own = $this->activity($owner, now()); $hidden = $this->activity($other, now()); $outside = $this->activity($foreign, now());
+        $own = $this->activity($owner, now());
+        $hidden = $this->activity($other, now());
+        $outside = $this->activity($foreign, now());
         Sanctum::actingAs($owner);
         $base = ['activity_type_id' => $own->activity_type_id, 'title' => 'Teste', 'scheduled_at' => now()->toISOString()];
         $this->postJson('/api/activities', $base + ['business_id' => $hidden->business_id])->assertForbidden();
@@ -96,7 +129,8 @@ class ActivityApiTest extends TestCase {
         $this->postJson('/api/activities', $base + ['business_id' => $own->business_id])->assertUnprocessable();
     }
 
-    public function test_assignment_rules_for_seller_supervisor_admin_and_master(): void {
+    public function test_assignment_rules_for_seller_supervisor_admin_and_master(): void
+    {
         $instance = Instance::create(['name' => 'Assignment']);
         $supervisor = User::factory()->create(['instance_id' => $instance->id, 'type' => 'seller']);
         $seller = User::factory()->create(['instance_id' => $instance->id, 'type' => 'seller', 'supervisor_id' => $supervisor->id]);
@@ -127,7 +161,8 @@ class ActivityApiTest extends TestCase {
         $this->getJson('/api/activities/assignees?business_id='.$business->id)->assertForbidden();
     }
 
-    public function test_assignment_ignores_foreign_or_deleted_supervisors(): void {
+    public function test_assignment_ignores_foreign_or_deleted_supervisors(): void
+    {
         $instance = Instance::create(['name' => 'A']);
         $other = Instance::create(['name' => 'B']);
         $foreign = User::factory()->create(['instance_id' => $other->id, 'type' => 'seller']);

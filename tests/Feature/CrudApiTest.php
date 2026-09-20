@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Client;
 use App\Models\Disposition;
 use App\Models\Instance;
 use App\Models\User;
@@ -107,10 +108,146 @@ class CrudApiTest extends TestCase
             ->assertJsonPath('data.id', $client['id'])
             ->assertJsonPath('data.phones.0.whatsapp', false);
 
-        $this->assertDatabaseHas('clients', ['type' => 'individual', 'registration' => '12345678900']);
+        $this->assertDatabaseHas('clients', [
+            'instance_id' => auth()->user()->instance_id,
+            'type' => 'individual',
+            'registration' => '12345678900',
+        ]);
         $this->assertDatabaseHas('phones', ['number' => '5511999999999']);
 
-        $this->getJson('/api/clients')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/clients')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $client['id']);
+    }
+
+    public function test_clients_resolve_is_scoped_to_instance(): void
+    {
+        $firstUser = auth()->user();
+        $secondInstance = Instance::create(['name' => 'Outra instância']);
+        $secondUser = User::factory()->create(['instance_id' => $secondInstance->id]);
+
+        $firstClient = $this->postJson('/api/clients/resolve', [
+            'fullname' => 'Cliente A',
+            'type' => 'individual',
+            'registration' => '123.456.789-00',
+        ])->assertCreated()->json('data');
+
+        $this->postJson('/api/clients/resolve', [
+            'fullname' => 'Cliente A atualizado',
+            'type' => 'individual',
+            'registration' => '12345678900',
+        ])->assertOk()
+            ->assertJsonPath('data.id', $firstClient['id'])
+            ->assertJsonPath('data.fullname', 'Cliente A atualizado');
+
+        Sanctum::actingAs($secondUser);
+        $secondClient = $this->postJson('/api/clients/resolve', [
+            'fullname' => 'Cliente B',
+            'type' => 'individual',
+            'registration' => '123.456.789-00',
+        ])->assertCreated()
+            ->assertJsonPath('data.instance_id', $secondInstance->id)
+            ->json('data');
+
+        $this->assertNotSame($firstClient['id'], $secondClient['id']);
+        $this->assertDatabaseHas('clients', ['instance_id' => $firstUser->instance_id, 'registration' => '12345678900']);
+        $this->assertDatabaseHas('clients', ['instance_id' => $secondInstance->id, 'registration' => '12345678900']);
+
+        Sanctum::actingAs($firstUser);
+        $this->getJson("/api/clients/{$secondClient['id']}")->assertNotFound();
+
+        $this->assertSame(2, Client::where('registration', '12345678900')->count());
+    }
+
+    public function test_clients_search_returns_existing_client_for_authenticated_instance(): void
+    {
+        $client = Client::create([
+            'instance_id' => auth()->user()->instance_id,
+            'fullname' => 'Cliente Busca',
+            'type' => 'individual',
+            'registration' => '12345678900',
+            'city' => 'Sao Paulo',
+        ]);
+        $client->phones()->create(['number' => '5511999999999', 'whatsapp' => true]);
+
+        $this->getJson('/api/clients/search?registration=123.456.789-00')
+            ->assertOk()
+            ->assertJsonPath('data.id', $client->id)
+            ->assertJsonPath('data.instance_id', auth()->user()->instance_id)
+            ->assertJsonPath('data.fullname', 'Cliente Busca')
+            ->assertJsonPath('data.phones.0.number', '5511999999999')
+            ->assertJsonPath('data.phones.0.whatsapp', true);
+    }
+
+    public function test_clients_search_does_not_return_client_from_another_instance(): void
+    {
+        $otherInstance = Instance::create(['name' => 'Outra instância']);
+        Client::create([
+            'instance_id' => $otherInstance->id,
+            'fullname' => 'Cliente de outra instancia',
+            'type' => 'individual',
+            'registration' => '12345678900',
+        ]);
+
+        $this->getJson('/api/clients/search?registration=123.456.789-00')->assertNotFound();
+    }
+
+    public function test_clients_search_returns_not_found_without_creating_client(): void
+    {
+        $this->assertDatabaseCount('clients', 0);
+
+        $this->getJson('/api/clients/search?registration=123.456.789-00')->assertNotFound();
+
+        $this->assertDatabaseCount('clients', 0);
+    }
+
+    public function test_clients_search_ignores_instance_id_for_user_with_instance(): void
+    {
+        $ownClient = Client::create([
+            'instance_id' => auth()->user()->instance_id,
+            'fullname' => 'Cliente da instancia correta',
+            'type' => 'individual',
+            'registration' => '12345678900',
+        ]);
+        $otherInstance = Instance::create(['name' => 'Outra instância']);
+        Client::create([
+            'instance_id' => $otherInstance->id,
+            'fullname' => 'Cliente de outra instancia',
+            'type' => 'individual',
+            'registration' => '12345678900',
+        ]);
+
+        $this->getJson("/api/clients/search?registration=123.456.789-00&instance_id={$otherInstance->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $ownClient->id)
+            ->assertJsonPath('data.instance_id', auth()->user()->instance_id);
+    }
+
+    public function test_clients_search_requires_valid_instance_for_master_without_instance(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['instance_id' => null, 'type' => 'master']));
+
+        $this->getJson('/api/clients/search?registration=123.456.789-00')->assertUnprocessable();
+        $this->getJson('/api/clients/search?registration=123.456.789-00&instance_id=999999')->assertUnprocessable();
+    }
+
+    public function test_clients_search_allows_master_to_select_instance(): void
+    {
+        $instance = Instance::create(['name' => 'Instancia selecionada']);
+        $client = Client::create([
+            'instance_id' => $instance->id,
+            'fullname' => 'Cliente Master',
+            'type' => 'individual',
+            'registration' => '12345678900',
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['instance_id' => null, 'type' => 'master']));
+
+        $this->getJson("/api/clients/search?registration=123.456.789-00&instance_id={$instance->id}")
+            ->assertOk()
+            ->assertJsonPath('data.id', $client->id)
+            ->assertJsonPath('data.instance_id', $instance->id);
     }
 
     public function test_products_crud(): void

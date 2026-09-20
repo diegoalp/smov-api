@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\ClientRequests;
 
+use App\Support\InstanceContext;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreClientRequest extends FormRequest
 {
@@ -15,11 +17,18 @@ class StoreClientRequest extends FormRequest
 
     public function rules(): array
     {
+        $instanceId = InstanceContext::id($this);
+
         return [
             'fullname' => ['required', 'string', 'max:255'],
             'type' => ['required', 'string', 'in:individual,company'],
             'birthdate' => ['nullable', 'date', 'before:today'],
-            'registration' => ['required', 'string', 'digits_between:11,14', 'unique:clients,registration'],
+            'registration' => [
+                'required',
+                'string',
+                'digits_between:11,14',
+                Rule::unique('clients', 'registration')->where('instance_id', $instanceId),
+            ],
             'rg' => ['nullable', 'string', 'max:20'],
             'street' => ['nullable', 'string', 'max:255'],
             'district' => ['nullable', 'string', 'max:255'],

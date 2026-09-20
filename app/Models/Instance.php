@@ -11,11 +11,16 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Instance extends Model
 {
     use SoftDeletes;
-    protected function casts(): array { return ['expiration_date' => 'date']; }
-    public function isExpired(): bool {
-        return $this->expiration_date !== null && $this->expiration_date->toDateString() < now(config('crm.timezone'))->toDateString();
+
+    protected function casts(): array
+    {
+        return ['expiration_date' => 'date'];
     }
 
+    public function isExpired(): bool
+    {
+        return $this->expiration_date !== null && $this->expiration_date->toDateString() < now(config('crm.timezone'))->toDateString();
+    }
 
     public function users(): HasMany
     {
@@ -35,5 +40,10 @@ class Instance extends Model
     public function businesses(): HasMany
     {
         return $this->hasMany(Business::class);
+    }
+
+    public function clients(): HasMany
+    {
+        return $this->hasMany(Client::class);
     }
 }

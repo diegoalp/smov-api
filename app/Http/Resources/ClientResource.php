@@ -11,6 +11,7 @@ class ClientResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'instance_id' => $this->instance_id,
             'fullname' => $this->fullname,
             'type' => $this->type,
             'birthdate' => $this->birthdate?->toDateString(),

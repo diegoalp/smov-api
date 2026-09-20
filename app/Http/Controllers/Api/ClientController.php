@@ -7,27 +7,32 @@ use App\Http\Requests\ClientRequests\StoreClientRequest;
 use App\Http\Requests\ClientRequests\UpdateClientRequest;
 use App\Http\Resources\ClientResource;
 use App\Models\Client;
+use App\Services\ClientResolver;
+use App\Support\InstanceContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class ClientController extends Controller
 {
+    public function __construct(private readonly ClientResolver $clientResolver) {}
+
     public function index(): AnonymousResourceCollection
     {
         $query = Client::query()->with('phones')->latest();
-        if (request()->user()->instance_id !== null) {
-            $query->accessibleByInstance(request()->user()->instance_id);
-        }
+        $query->accessibleByInstance(InstanceContext::id(request()));
 
         return ClientResource::collection($query->paginate());
     }
 
     public function store(StoreClientRequest $request): JsonResponse
     {
-        return (new ClientResource(Client::create($request->validated())->load('phones')))
+        return (new ClientResource(Client::create([
+            ...$request->validated(),
+            'instance_id' => InstanceContext::id($request),
+        ])->load('phones')))
             ->response()
             ->setStatusCode(201);
     }
@@ -69,33 +74,41 @@ class ClientController extends Controller
             'extra' => ['sometimes', 'nullable', 'array'],
         ]);
 
-        $registration = preg_replace('/\D+/', '', $data['registration']);
-        validator(['registration' => $registration], [
-            'registration' => [$data['type'] === 'individual' ? 'size:11' : 'size:14'],
-        ])->validate();
-
-        $client = DB::transaction(function () use ($data, $registration): Client {
-            $client = Client::firstOrCreate(['registration' => $registration], [
-                'fullname' => $data['fullname'], 'type' => $data['type'], 'birthdate' => $data['birthdate'] ?? null,
-            ]);
-            $client->update(array_filter([
-                'fullname' => $data['fullname'], 'type' => $data['type'], 'birthdate' => $data['birthdate'] ?? null,
-                'extra' => $data['extra'] ?? null,
-            ], fn ($value) => $value !== null));
-            foreach ($data['phones'] ?? [] as $phone) {
-                $number = preg_replace('/\D+/', '', $phone['number']);
-                $client->phones()->updateOrCreate(['number' => $number], ['whatsapp' => $phone['whatsapp'] ?? false]);
-            }
-
-            return $client->load('phones');
-        });
+        $client = $this->clientResolver->resolve($data, InstanceContext::id($request));
 
         return (new ClientResource($client))->response();
     }
 
+    public function search(Request $request): ClientResource
+    {
+        $data = $request->validate([
+            'registration' => ['required', 'string', 'max:18'],
+        ]);
+
+        $registration = preg_replace('/\D+/', '', (string) $data['registration']);
+
+        Validator::make(['registration' => $registration], [
+            'registration' => [
+                'required',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! in_array(strlen((string) $value), [11, 14], true)) {
+                        $fail('O campo registration deve conter um CPF ou CNPJ valido.');
+                    }
+                },
+            ],
+        ])->validate();
+
+        $client = Client::query()
+            ->with('phones')
+            ->accessibleByInstance(InstanceContext::id($request))
+            ->where('registration', $registration)
+            ->firstOrFail();
+
+        return new ClientResource($client);
+    }
+
     private function ensureAccess(Client $client): void
     {
-        $instanceId = request()->user()->instance_id;
-        abort_if($instanceId !== null && ! $client->businesses()->where('instance_id', $instanceId)->exists(), 404);
+        InstanceContext::authorize(request(), (int) $client->instance_id);
     }
 }
