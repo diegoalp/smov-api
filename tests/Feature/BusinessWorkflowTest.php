@@ -131,7 +131,7 @@ class BusinessWorkflowTest extends TestCase
             ->assertJsonPath('data.value', 150000);
 
         $this->assertDatabaseHas('histories', [
-            'object_type' => 'business', 'object_id' => $business['id'], 'action' => 'Negócio marcado como ganho',
+            'object_type' => 'business', 'object_id' => $business['id'], 'action' => 'Negócio marcado como perdido',
         ]);
 
         $this->getJson('/api/businesses?stage_id='.$stage['id'])->assertOk()->assertJsonCount(0, 'data');

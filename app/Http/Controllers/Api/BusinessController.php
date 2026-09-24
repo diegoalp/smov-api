@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\BusinessRequests\StoreBusinessRequest;
 use App\Http\Requests\BusinessRequests\UpdateBusinessRequest;
 use App\Http\Resources\BusinessResource;
+use App\Enums\Status;
 use App\Models\Business;
 use App\Models\History;
 use App\Models\Stage;
@@ -111,8 +112,8 @@ class BusinessController extends Controller
     {
         if ($business->status !== $previousStatus) {
             return match ($business->status) {
-                0 => ['Negócio marcado como perdido'.($business->loss_reason ? ': '.$business->loss_reason : ''), 'lost'],
-                2 => ['Negócio marcado como ganho', 'won'],
+                Status::Lost->number() => ['Negócio marcado como perdido'.($business->loss_reason ? ': '.$business->loss_reason : ''), 'lost'],
+                Status::Winned->number() => ['Negócio marcado como ganho', 'won'],
                 default => ['Negócio reaberto', 'reopened'],
             };
         }

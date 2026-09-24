@@ -84,7 +84,7 @@ class StoreBusinessRequest extends FormRequest
             'product_id' => ['nullable', 'integer', Rule::exists('products', 'id')->where('instance_id', $instanceId)],
             'funnel_id' => ['required', 'integer', Rule::exists('funnels', 'id')->where('instance_id', $instanceId)],
             'stage_id' => ['required', 'integer', 'exists:stages,id'],
-            'status' => ['sometimes', 'required', 'integer', Rule::in([0, 1, 2])],
+            'status' => ['sometimes', 'required', 'integer', Rule::in([1, 2, 3])],
             'value' => ['sometimes', 'integer', 'min:0'],
             'notes' => ['nullable', 'string'],
             'priority' => ['sometimes', Rule::in(['low', 'medium', 'high'])],
@@ -106,7 +106,7 @@ class StoreBusinessRequest extends FormRequest
             if (! $this->responsibleCanOwnFunnel()) {
                 $validator->errors()->add('user_id', 'O responsável selecionado deve ser admin ou pertencer ao funil do negócio.');
             }
-            if ($this->integer('status') === 2 && ! \DB::table('stages')->where('id', $this->integer('stage_id'))->where('is_final', true)->exists()) {
+            if ($this->integer('status') === 3 && ! \DB::table('stages')->where('id', $this->integer('stage_id'))->where('is_final', true)->exists()) {
                 $validator->errors()->add('status', 'O negócio só pode ser ganho em uma fase final do funil.');
             }
         }];
