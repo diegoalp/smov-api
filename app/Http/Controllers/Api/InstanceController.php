@@ -21,13 +21,17 @@ class InstanceController extends Controller {
         $instance = DB::transaction(function () use ($request,$data) {
             $user = User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
             $master = $user->type === UserType::Master;
+            $isPrincipal = $master && ($data['is_principal'] ?? false);
             if (!$master && ($user->instance_id !== null || Instance::withTrashed()->where('owner_user_id',$user->id)->exists())) {
                 throw new HttpResponseException(ApiError::response(409,'INSTANCE_LIMIT_REACHED','Cada usuário pode criar apenas uma instância.'));
             }
+            $expirationDate = $isPrincipal ? null : ($master
+                ? ($data['expiration_date'] ?? now(config('crm.timezone'))->addDays(config('crm.initial_instance_days'))->toDateString())
+                : now(config('crm.timezone'))->addDays(config('crm.initial_instance_days'))->toDateString());
             $instance = Instance::create([
                 'name'=>$data['name'],
-                'expiration_date'=>$master ? ($data['expiration_date'] ?? now(config('crm.timezone'))->addDays(config('crm.initial_instance_days'))->toDateString())
-                    : now(config('crm.timezone'))->addDays(config('crm.initial_instance_days'))->toDateString(),
+                'is_principal'=>$isPrincipal,
+                'expiration_date'=>$expirationDate,
                 'owner_user_id'=>$master ? null : $user->id,
                 'primary_color'=>$data['primaryColor'] ?? null,'secondary_color'=>$data['secondaryColor'] ?? null,
                 'accent_color'=>$data['accentColor'] ?? null,'primary_text_color'=>$data['primaryTextColor'] ?? null,
@@ -46,7 +50,11 @@ class InstanceController extends Controller {
         abort_unless(in_array($request->user()->type,[UserType::Admin,UserType::Master],true),403);
         if ($instance->isExpired() && $request->user()->type !== UserType::Master)
             return ApiError::response(423,'INSTANCE_EXPIRED','Somente o master pode reativar a instância.');
-        $instance->update($request->validated());
+        $data = $request->validated();
+        if (($data['is_principal'] ?? null) === true) {
+            $data['expiration_date'] = null;
+        }
+        $instance->update($data);
         return new InstanceResource($instance->refresh());
     }
     public function activate(Request $request, Instance $instance) {

@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\InstanceRequests;
 
+use App\Enums\UserType;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreInstanceRequest extends FormRequest
 {
@@ -12,8 +14,19 @@ class StoreInstanceRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'expiration_date' => [\Illuminate\Validation\Rule::prohibitedIf($this->user()?->type !== \App\Enums\UserType::Master),
-                \Illuminate\Validation\Rule::requiredIf($this->user()?->type === \App\Enums\UserType::Master),'date_format:Y-m-d','after_or_equal:'.now(config('crm.timezone'))->toDateString()],
+            'is_principal' => [
+                'sometimes',
+                'boolean',
+                Rule::prohibitedIf(fn (): bool => $this->user()?->type !== UserType::Master && $this->boolean('is_principal')),
+            ],
+            'expiration_date' => [
+                Rule::prohibitedIf(fn (): bool => $this->isPrincipal() && $this->input('expiration_date') !== null),
+                Rule::prohibitedIf($this->user()?->type !== UserType::Master),
+                Rule::requiredIf(fn (): bool => $this->user()?->type === UserType::Master && ! $this->isPrincipal()),
+                'nullable',
+                'date_format:Y-m-d',
+                'after_or_equal:'.now(config('crm.timezone'))->toDateString(),
+            ],
 
             'name' => ['required', 'string', 'max:255', 'unique:instances,name'],
             'primaryColor' => ['sometimes', 'nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -21,5 +34,10 @@ class StoreInstanceRequest extends FormRequest
             'accentColor' => ['sometimes', 'nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'primaryTextColor' => ['sometimes', 'nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
         ];
+    }
+
+    private function isPrincipal(): bool
+    {
+        return $this->user()?->type === UserType::Master && $this->boolean('is_principal');
     }
 }
