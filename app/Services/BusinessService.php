@@ -12,7 +12,16 @@ use App\Enums\Status;
 
 class BusinessService
 {
-    public const RELATIONS = ['client.phones', 'user', 'category', 'product', 'funnel', 'stage', 'events.user', 'messages'];
+    public const RELATIONS = [
+        'client.phones',
+        'user',
+        'category',
+        'product',
+        'funnel',
+        'stage',
+        'events.user',
+        'messages',
+    ];
 
     public function paginate(Request $request): LengthAwarePaginator
     {

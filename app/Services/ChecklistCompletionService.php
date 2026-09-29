@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\{Business, Checklist, ChecklistItemCompletion, Stage};
-use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection;
 
 class ChecklistCompletionService
 {
@@ -42,6 +42,35 @@ class ChecklistCompletionService
                 ]);
             }
         }
+    }
+
+    public function completionsForBusiness(Business $business): Collection
+    {
+        $checklists = $this->applicableToBusiness($business);
+        $checklists->load([
+            'items.completions' => fn ($query) => $query->where('business_id', $business->id),
+            'items.completions.histories',
+        ]);
+
+        return $checklists->flatMap(function (Checklist $checklist) use ($business): Collection {
+            return $checklist->items->map(function ($item) use ($business, $checklist) {
+                $completion = $item->completions->first() ?? new ChecklistItemCompletion([
+                    'checklist_item_id' => $item->id,
+                    'business_id' => $business->id,
+                    'done' => false,
+                    'completed_at' => null,
+                ]);
+
+                $item->setRelation('checklist', $checklist);
+                $completion->setRelation('item', $item);
+                $completion->setRelation(
+                    'histories',
+                    $completion->relationLoaded('histories') ? $completion->getRelation('histories') : collect(),
+                );
+
+                return $completion;
+            });
+        })->values();
     }
 
     public function isApplicable(Checklist $checklist, Business $business): bool

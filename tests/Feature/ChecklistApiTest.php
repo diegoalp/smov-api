@@ -156,6 +156,19 @@ class ChecklistApiTest extends TestCase
             $newBusinessResponse->dump();
         }
         $newBusiness = $newBusinessResponse->assertCreated()->json('data');
+        $this->assertCount(1, $newBusiness['checklists']);
+        $this->assertSame($allStagesChecklist['id'], $newBusiness['checklists'][0]['id']);
+        $this->assertFalse($newBusiness['checklists'][0]['items'][0]['done']);
+
+        $this->getJson('/api/businesses?stage_id='.$stage->id)
+            ->assertOk()
+            ->assertJsonPath('data.0.checklists.0.id', $allStagesChecklist['id'])
+            ->assertJsonPath('data.0.checklists.0.items.0.done', false);
+
+        $this->getJson('/api/businesses/'.$newBusiness['id'])
+            ->assertOk()
+            ->assertJsonPath('data.checklists.0.id', $allStagesChecklist['id'])
+            ->assertJsonPath('data.checklists.0.items.0.done', false);
 
         $allStagesItemId = $allStagesChecklist['items'][0]['id'];
         $this->assertDatabaseHas('checklist_item_completions', [

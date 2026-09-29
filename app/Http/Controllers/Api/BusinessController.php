@@ -48,7 +48,10 @@ class BusinessController extends Controller
             ]);
         }
 
-        return BusinessResource::collection($this->businessService->paginate($request));
+        $businesses = $this->businessService->paginate($request);
+        $businesses->getCollection()->each(fn (Business $business): Business => $this->loadBusinessChecklists($business));
+
+        return BusinessResource::collection($businesses);
     }
 
     public function store(StoreBusinessRequest $request): JsonResponse
@@ -70,7 +73,7 @@ class BusinessController extends Controller
             return $business;
         });
 
-        return (new BusinessResource($business->load(self::RELATIONS)))
+        return (new BusinessResource($this->loadBusinessChecklists($business->load(self::RELATIONS))))
             ->response()->setStatusCode(201);
     }
 
@@ -78,7 +81,7 @@ class BusinessController extends Controller
     {
         $this->ensureTenantAccess($business);
 
-        return new BusinessResource($business->load(self::RELATIONS));
+        return new BusinessResource($this->loadBusinessChecklists($business->load(self::RELATIONS)));
     }
 
     public function update(UpdateBusinessRequest $request, Business $business): BusinessResource
@@ -97,7 +100,7 @@ class BusinessController extends Controller
             }
         });
 
-        return new BusinessResource($business->refresh()->load(self::RELATIONS));
+        return new BusinessResource($this->loadBusinessChecklists($business->refresh()->load(self::RELATIONS)));
     }
 
     public function destroy(Business $business): Response
@@ -111,6 +114,16 @@ class BusinessController extends Controller
     private function ensureTenantAccess(Business $business): void
     {
         InstanceContext::authorize(request(), $business->instance_id);
+    }
+
+    private function loadBusinessChecklists(Business $business): Business
+    {
+        $business->setRelation(
+            'checklistItemCompletions',
+            $this->checklistCompletionService->completionsForBusiness($business),
+        );
+
+        return $business;
     }
 
     private function describeUpdate(Business $business, int $previousStageId, int $previousStatus): array

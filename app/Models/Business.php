@@ -93,4 +93,9 @@ class Business extends Model
     {
         return $this->hasMany(BusinessMessage::class)->oldest();
     }
+
+    public function checklistItemCompletions(): HasMany
+    {
+        return $this->hasMany(ChecklistItemCompletion::class);
+    }
 }
