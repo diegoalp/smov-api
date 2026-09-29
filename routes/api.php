@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\{AuthController,AutomationRuleController,BrandingController,BusinessController,BusinessEventController,BusinessMessageController,CategoryController,ClientController,CustomFieldController,CustomFieldSectionController,DispositionController,FunnelController,InstanceController,LeadSourceController,OperationTemplateController,PermissionRoleController,PhoneController,ProductController,PublicLeadFormController,StageController,TaskController,TeamController,UserController,ActivityTypeController};
+use App\Http\Controllers\Api\{AuthController,AutomationRuleController,BrandingController,BusinessController,BusinessEventController,BusinessMessageController,CategoryController,ChecklistController,ClientController,CustomFieldController,CustomFieldSectionController,DispositionController,FunnelController,InstanceController,LeadSourceController,OperationTemplateController,PermissionRoleController,PhoneController,ProductController,PublicLeadFormController,StageController,TaskController,TeamController,UserController,ActivityTypeController};
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -26,6 +26,9 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureInstanceIsActive::
     Route::put('operation-template', [OperationTemplateController::class, 'install']);
     Route::apiResource('businesses.events', BusinessEventController::class)->only(['index', 'store'])->shallow();
     Route::apiResource('businesses.messages', BusinessMessageController::class)->only(['index', 'store'])->shallow();
+    Route::get('businesses/{business}/checklists', [ChecklistController::class, 'forBusiness']);
+    Route::patch('businesses/{business}/checklists/{checklist}/items/{item}/completion', [ChecklistController::class, 'updateCompletion']);
+    Route::get('checklists/available', [ChecklistController::class, 'available']);
 
     Route::get('activities/assignees', [\App\Http\Controllers\Api\ActivityController::class, 'assignees']);
     Route::get('activities/today', [\App\Http\Controllers\Api\ActivityController::class, 'today']);
@@ -44,6 +47,7 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureInstanceIsActive::
         'funnels' => FunnelController::class,
         'stages' => StageController::class,
         'businesses' => BusinessController::class,
+        'checklists' => ChecklistController::class,
         'instances' => InstanceController::class,
         'lead-sources' => LeadSourceController::class,
         'dispositions' => DispositionController::class,

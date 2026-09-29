@@ -27,6 +27,7 @@ class BusinessController extends Controller
     public function __construct(
         private readonly BusinessService $businessService,
         private readonly ClientResolver $clientResolver,
+        private readonly \App\Services\ChecklistCompletionService $checklistCompletionService,
     ) {}
 
     public function index(Request $request): AnonymousResourceCollection
@@ -64,6 +65,7 @@ class BusinessController extends Controller
 
             $business = Business::create($data);
             $this->recordHistory($business, $request->user()->id, 'Negócio criado', 'created');
+            $this->checklistCompletionService->ensureForBusiness($business);
 
             return $business;
         });
@@ -90,6 +92,9 @@ class BusinessController extends Controller
 
             [$action, $type] = $this->describeUpdate($business, $previousStageId, $previousStatus);
             $this->recordHistory($business, $request->user()->id, $action, $type);
+            if ($business->stage_id !== $previousStageId) {
+                $this->checklistCompletionService->ensureForBusiness($business);
+            }
         });
 
         return new BusinessResource($business->refresh()->load(self::RELATIONS));
