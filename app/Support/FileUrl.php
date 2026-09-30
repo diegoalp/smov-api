@@ -17,7 +17,9 @@ class FileUrl
             return null;
         }
 
-        return route('files.public', ['path' => ltrim($path, '/')]);
+        // Branding is always stored on the local public disk. Do not use the
+        // generic document disk (which may be configured as S3) here.
+        return url(Storage::disk('public')->url(ltrim($path, '/')));
     }
 
     public static function publicUrl(Request $request, ?string $path): ?string
