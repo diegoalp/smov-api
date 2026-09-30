@@ -101,6 +101,10 @@ class BusinessWorkflowTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.stage_id', $stage['id'])
             ->assertJsonStructure(['meta' => ['current_page', 'last_page', 'per_page', 'total']]);
+        $this->getJson('/api/businesses?stage_id='.$stage['id'].'&search=111.222.333-44')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.client.id', $client->id);
         $this->getJson('/api/businesses?stage_id='.$laterStage['id'])
             ->assertOk()
             ->assertJsonCount(0, 'data');

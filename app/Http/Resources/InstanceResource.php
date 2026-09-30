@@ -10,7 +10,7 @@ class InstanceResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
-        $logoUrl = FileUrl::publicUrl($request, $this->logo_url);
+        $logoUrl = FileUrl::localPublicUrl($request, $this->logo_url);
 
         return [
             'id' => $this->id,

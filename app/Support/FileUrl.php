@@ -7,6 +7,19 @@ use Illuminate\Support\Facades\Storage;
 
 class FileUrl
 {
+    /**
+     * Builds the public URL for files stored in the local public disk.
+     * Branding assets must not be resolved through a cloud disk such as S3.
+     */
+    public static function localPublicUrl(Request $request, ?string $path): ?string
+    {
+        if (! $path || str_starts_with($path, 'data:')) {
+            return null;
+        }
+
+        return route('files.public', ['path' => ltrim($path, '/')]);
+    }
+
     public static function publicUrl(Request $request, ?string $path): ?string
     {
         if (! $path || str_starts_with($path, 'data:')) {
