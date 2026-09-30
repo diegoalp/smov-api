@@ -17,6 +17,14 @@ class StoreBusinessRequest extends FormRequest
     {
         $this->prepareForInstanceValidation();
 
+        // The frontend parses Brazilian currency input as a decimal number
+        // (for example, R$ 1.250,50 becomes 1250.5), while the businesses
+        // table stores whole monetary units. Normalize that representation
+        // before the integer validation rule runs.
+        if ($this->has('value') && is_numeric($this->input('value'))) {
+            $this->merge(['value' => (int) round((float) $this->input('value'))]);
+        }
+
         if (! $this->route('business') && $this->filled('instance_id')) {
             $requestedUserCanOwnBusiness = \DB::table('users')
                 ->where('id', $this->integer('user_id'))

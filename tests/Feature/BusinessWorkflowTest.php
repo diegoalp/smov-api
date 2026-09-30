@@ -72,7 +72,7 @@ class BusinessWorkflowTest extends TestCase
             'funnel_id' => $funnel['id'],
             'stage_id' => $laterStage['id'],
             'status' => 1,
-            'value' => 125050,
+            'value' => 125050.4,
             'notes' => 'Aguardando retorno do cliente.',
             'custom_data' => [
                 'custom_fields' => [
