@@ -108,7 +108,7 @@ class BusinessWorkflowTest extends TestCase
         $this->getJson('/api/businesses?stage_id='.$laterStage['id'])
             ->assertOk()
             ->assertJsonCount(0, 'data');
-        $this->getJson('/api/businesses?stage_id='.$stage['id'].'&client_name=Cliente')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/businesses?stage_id='.$stage['id'].'&search=cliente')->assertOk()->assertJsonCount(1, 'data');
 
         $this->assertDatabaseHas('businesses', [
             'id' => $business['id'],
@@ -139,7 +139,7 @@ class BusinessWorkflowTest extends TestCase
         ]);
 
         $this->getJson('/api/businesses?stage_id='.$stage['id'])->assertOk()->assertJsonCount(0, 'data');
-        $this->getJson('/api/businesses?stage_id='.$stage['id'].'&status=2&client_name=Cliente')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/businesses?stage_id='.$stage['id'].'&status=2&search=cliente')->assertOk()->assertJsonCount(1, 'data');
 
         $master = User::factory()->create([
             'instance_id' => null,

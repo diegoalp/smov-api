@@ -36,11 +36,11 @@ class BusinessService
        $search = $request->query('search');
 
         if (! empty($search)) {
-            $search = (string) $search;
+            $search = strtolower((string) $search);
             $registrationSearch = preg_replace('/\D+/', '', $search);
         
             $query->whereHas('client', function (Builder $clientQuery) use ($search, $registrationSearch): void {
-                $clientQuery->where('fullname', 'like', '%' . $search . '%');
+                $clientQuery->whereRaw('LOWER(fullname) LIKE ?', ['%' . $search . '%']);
         
                 if ($registrationSearch !== '') {
                     $clientQuery->orWhere('registration', 'like', '%' . $registrationSearch . '%');
