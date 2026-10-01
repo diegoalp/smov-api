@@ -33,15 +33,17 @@ class BusinessService
             ->with(self::RELATIONS)
             ->where('status', $request->query('status',Status::Open->number())); //Se for passado o status na query, filtra pelo status, senão filtra pelo status aberto
 
-        if ($request->filled('search')) {
-            $search = (string) $request->query('search');
+       $search = $request->query('search');
+
+        if (! empty($search)) {
+            $search = (string) $search;
             $registrationSearch = preg_replace('/\D+/', '', $search);
-
+        
             $query->whereHas('client', function (Builder $clientQuery) use ($search, $registrationSearch): void {
-                $clientQuery->where('fullname', 'like', '%'.$search.'%');
-
+                $clientQuery->where('fullname', 'like', '%' . $search . '%');
+        
                 if ($registrationSearch !== '') {
-                    $clientQuery->orWhere('registration', 'like', '%'.$registrationSearch.'%');
+                    $clientQuery->orWhere('registration', 'like', '%' . $registrationSearch . '%');
                 }
             });
         }
