@@ -9,9 +9,21 @@ use Illuminate\Validation\Rule;
 
 class UpdateInstanceRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('is_master') && ! $this->has('is_principal')) {
+            $this->merge(['is_principal' => $this->input('is_master')]);
+        }
+    }
+
     public function rules(): array
     {
         return [
+            'is_master' => [
+                'sometimes',
+                'boolean',
+                Rule::prohibitedIf($this->user()?->type !== UserType::Master),
+            ],
             'is_principal' => [
                 'sometimes',
                 'boolean',

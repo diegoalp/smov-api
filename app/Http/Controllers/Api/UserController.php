@@ -20,6 +20,7 @@ class UserController extends Controller
     {
         $query = User::query()
             ->where('instance_id', InstanceContext::id(request()))
+            ->when(request()->filled('funnel_id'), fn ($query) => $query->where('funnel_id', request()->integer('funnel_id')))
             ->latest();
 
         return UserResource::collection($query->paginate());

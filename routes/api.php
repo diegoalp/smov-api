@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\Api\{AuthController,AutomationRuleController,BrandingController,BusinessController,BusinessEventController,BusinessMessageController,CategoryController,ChecklistController,ClientController,CustomFieldController,CustomFieldSectionController,DispositionController,FunnelController,InstanceController,LeadSourceController,OperationTemplateController,PermissionRoleController,PhoneController,ProductController,PublicLeadFormController,StageController,TaskController,TeamController,UserController,ActivityTypeController};
+use App\Http\Controllers\Api\{AuthController,AutomationRuleController,BrandingController,BusinessController,BusinessEventController,BusinessMessageController,CategoryController,ChecklistController,ClientController,CustomFieldController,CustomFieldSectionController,DispositionController,FunnelController,InstanceController,LeadSourceController,OperationTemplateController,PermissionRoleController,PhoneController,ProductController,ProductionReportController,PublicLeadFormController,SavedReportController,StageController,TaskController,TeamController,UserController,ActivityTypeController};
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('auth')->group(function (): void {
@@ -24,6 +24,10 @@ Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureInstanceIsActive::
     Route::delete('branding/logo', [BrandingController::class, 'removeLogo']);
     Route::get('operation-template', [OperationTemplateController::class, 'show']);
     Route::put('operation-template', [OperationTemplateController::class, 'install']);
+    Route::get('reports/production', ProductionReportController::class);
+    Route::get('reports/saved', [SavedReportController::class, 'index']);
+    Route::post('reports/saved', [SavedReportController::class, 'store']);
+    Route::delete('reports/saved/{savedReport}', [SavedReportController::class, 'destroy']);
     Route::apiResource('businesses.events', BusinessEventController::class)->only(['index', 'store'])->shallow();
     Route::apiResource('businesses.messages', BusinessMessageController::class)->only(['index', 'store'])->shallow();
     Route::get('businesses/{business}/checklists', [ChecklistController::class, 'forBusiness']);

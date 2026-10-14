@@ -84,6 +84,16 @@ class Business extends Model
         return $this->belongsTo(Stage::class);
     }
 
+    public function leadSource(): BelongsTo
+    {
+        return $this->belongsTo(LeadSource::class);
+    }
+
+    public function disposition(): BelongsTo
+    {
+        return $this->belongsTo(Disposition::class);
+    }
+
     public function events(): HasMany
     {
         return $this->hasMany(BusinessEvent::class)->latest();
@@ -97,5 +107,10 @@ class Business extends Model
     public function checklistItemCompletions(): HasMany
     {
         return $this->hasMany(ChecklistItemCompletion::class);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(Activity::class);
     }
 }

@@ -16,6 +16,7 @@ class InstanceResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'is_principal' => $this->is_principal,
+            'is_master' => $this->is_principal,
             'expiration_date' => $this->expiration_date?->toDateString(),
             'is_expired' => $this->isExpired(),
             'branding' => [

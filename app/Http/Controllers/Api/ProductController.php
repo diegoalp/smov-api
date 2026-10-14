@@ -18,6 +18,7 @@ class ProductController extends Controller
     {
         $query = Product::query()
             ->where('instance_id', InstanceContext::id(request()))
+            ->when(request()->filled('funnel_id'), fn ($query) => $query->whereHas('funnels', fn ($funnels) => $funnels->whereKey(request()->integer('funnel_id'))))
             ->with(['categories', 'funnels'])
             ->latest();
 

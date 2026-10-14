@@ -20,6 +20,7 @@ class CategoryController extends Controller
 
         return CategoryResource::collection(Category::query()
             ->where('instance_id', $instanceId)
+            ->when(request()->filled('funnel_id'), fn ($query) => $query->whereHas('funnels', fn ($funnels) => $funnels->whereKey(request()->integer('funnel_id'))))
             ->with([
                 'funnels',
                 'products' => fn ($query) => $query->where('instance_id', $instanceId),

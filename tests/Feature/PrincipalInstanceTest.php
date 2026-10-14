@@ -78,6 +78,52 @@ class PrincipalInstanceTest extends TestCase
             ->assertJsonPath('data.expiration_date', $expirationDate);
     }
 
+    public function test_only_master_can_promote_an_instance_through_patch(): void
+    {
+        $instance = Instance::create([
+            'name' => 'Instância comum',
+            'expiration_date' => now()->addDays(7)->toDateString(),
+        ]);
+        Sanctum::actingAs(User::factory()->create([
+            'instance_id' => $instance->id,
+            'type' => 'admin',
+        ]));
+
+        $this->patchJson("/api/instances/{$instance->id}", [
+            'is_principal' => true,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('is_principal', 'error.details.fields');
+
+        $this->assertDatabaseHas('instances', [
+            'id' => $instance->id,
+            'is_principal' => false,
+        ]);
+    }
+
+    public function test_master_can_promote_an_instance_using_is_master(): void
+    {
+        $instance = Instance::create([
+            'name' => 'Instância comum',
+            'expiration_date' => now()->addDays(7)->toDateString(),
+        ]);
+        Sanctum::actingAs(User::factory()->create([
+            'instance_id' => null,
+            'type' => 'master',
+        ]));
+
+        $this->patchJson("/api/instances/{$instance->id}", [
+            'is_master' => true,
+        ])->assertOk()
+            ->assertJsonPath('data.is_master', true)
+            ->assertJsonPath('data.is_principal', true);
+
+        $this->assertDatabaseHas('instances', [
+            'id' => $instance->id,
+            'is_principal' => true,
+            'expiration_date' => null,
+        ]);
+    }
+
     public function test_principal_instance_is_not_expired_or_blocked(): void
     {
         $instance = Instance::create([
