@@ -82,4 +82,24 @@ class BusinessExpirationAccessTest extends TestCase
         $foreign->update(['user_id' => $user->id]);
         $this->patchJson('/api/businesses/'.$business->id, ['notes' => 'Outra instância não bloqueia'])->assertOk();
     }
+
+    public function test_master_can_list_all_expired_businesses_without_stage_filter(): void
+    {
+        $this->travelTo(now()->startOfSecond());
+        $instance = Instance::create(['name' => 'A']);
+        $owner = User::factory()->create(['instance_id' => $instance->id, 'type' => 'admin']);
+        $otherOwner = User::factory()->create(['instance_id' => $instance->id, 'type' => 'seller']);
+        $expired = $this->business($owner, now()->subHour()->toDateTimeString());
+        $otherExpired = $this->business($otherOwner, now()->subHour()->toDateTimeString());
+        $this->business($owner, now()->addHour()->toDateTimeString());
+
+        $master = User::factory()->create(['instance_id' => null, 'type' => 'master']);
+        Sanctum::actingAs($master);
+
+        $this->getJson('/api/businesses?instance_id='.$instance->id.'&expired=1')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['id' => $expired->id])
+            ->assertJsonFragment(['id' => $otherExpired->id]);
+    }
 }

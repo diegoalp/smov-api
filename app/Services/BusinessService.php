@@ -29,9 +29,13 @@ class BusinessService
 
         $query = Business::query()
             ->where('instance_id', InstanceContext::id($request))
-            ->where('stage_id', $request->integer('stage_id'))
             ->with(self::RELATIONS)
-            ->where('status', $request->query('status',Status::Open->number())); //Se for passado o status na query, filtra pelo status, senão filtra pelo status aberto
+            ->when($request->filled('stage_id'), fn (Builder $query) => $query->where('stage_id', $request->integer('stage_id')))
+            ->when($request->boolean('expired'), function (Builder $query): void {
+                $query->where('expiration_date', '<', now());
+            }, function (Builder $query) use ($request): void {
+                $query->where('status', $request->query('status', Status::Open->number()));
+            });
 
        $search = $request->query('search');
 

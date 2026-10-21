@@ -7,6 +7,7 @@ use App\Http\Requests\BusinessRequests\StoreBusinessRequest;
 use App\Http\Requests\BusinessRequests\UpdateBusinessRequest;
 use App\Http\Resources\BusinessResource;
 use App\Enums\Status;
+use App\Enums\UserType;
 use App\Models\Business;
 use App\Models\History;
 use App\Models\Stage;
@@ -33,19 +34,28 @@ class BusinessController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $instanceId = InstanceContext::id($request);
+        $expiredOnly = $request->boolean('expired');
 
-        $request->validate([
+        if ($expiredOnly && $request->user()->type !== UserType::Master) {
+            abort(403, 'Somente usuários master podem listar todos os negócios expirados.');
+        }
+
+        $request->validate($expiredOnly ? [
+            'stage_id' => ['sometimes', 'integer'],
+        ] : [
             'stage_id' => ['required', 'integer'],
         ]);
 
-        $stageBelongsToInstance = Stage::whereKey($request->integer('stage_id'))
-            ->whereHas('funnel', fn ($query) => $query->where('instance_id', $instanceId))
-            ->exists();
+        if (! $expiredOnly || $request->filled('stage_id')) {
+            $stageBelongsToInstance = Stage::whereKey($request->integer('stage_id'))
+                ->whereHas('funnel', fn ($query) => $query->where('instance_id', $instanceId))
+                ->exists();
 
-        if (! $stageBelongsToInstance) {
-            throw ValidationException::withMessages([
-                'stage_id' => ['A fase selecionada não existe na instância atual.'],
-            ]);
+            if (! $stageBelongsToInstance) {
+                throw ValidationException::withMessages([
+                    'stage_id' => ['A fase selecionada não existe na instância atual.'],
+                ]);
+            }
         }
 
         $businesses = $this->businessService->paginate($request);
