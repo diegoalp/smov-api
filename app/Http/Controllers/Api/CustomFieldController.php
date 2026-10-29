@@ -35,6 +35,14 @@ class CustomFieldController extends InstanceCrudController
             ],
             'type' => [$presence, Rule::in(['text', 'textarea', 'currency', 'number', 'group', 'date', 'select', 'file', 'phone', 'document', 'checkbox'])],
             'required' => ['sometimes', 'boolean'],
+            'is_business_value' => [
+                'sometimes', 'boolean',
+                function (string $attribute, mixed $value, Closure $fail) use ($fieldType): void {
+                    if (in_array($value, [true, 1, '1'], true) && $fieldType !== 'currency') {
+                        $fail('Somente campos do tipo moeda podem definir o valor do negócio.');
+                    }
+                },
+            ],
             'default_value' => [Rule::requiredIf($requiresTypeConfiguration && $fieldType === 'checkbox'), 'nullable', 'boolean'],
             'visible_when' => ['sometimes', 'string', 'max:255'],
             'conditions' => ['nullable', 'array'],
@@ -91,5 +99,14 @@ class CustomFieldController extends InstanceCrudController
             'position' => ['sometimes', 'integer', 'min:0'], 'active' => ['sometimes', 'boolean'],
             'instance_id' => ['sometimes', 'integer', 'exists:instances,id'],
         ];
+    }
+
+    protected function transformPayload(array $data): array
+    {
+        if (isset($data['type']) && $data['type'] !== 'currency') {
+            $data['is_business_value'] = false;
+        }
+
+        return $data;
     }
 }
